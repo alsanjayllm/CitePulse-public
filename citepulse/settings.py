@@ -147,6 +147,22 @@ class Settings(BaseSettings):
     # increase.
     classifier_self_consistency_enabled: bool = False
 
+    # Homepage fetches (company_profile.py's extraction, crawler/
+    # homepage.py's fetch_homepage_meta -- used by KPI #22/#24 and
+    # task_generator.py) hit a plain httpx GET with no browser fingerprint
+    # -- a bot-protected homepage (Akamai/Cloudflare) returns 401/403/429
+    # and the caller falls back to a placeholder/empty signal (confirmed
+    # live: godaddy.com's Akamai edge 403s even a normal-browser User-
+    # Agent). When enabled, a fetch classified by fetch_diagnostics.
+    # diagnostic_fetch() as one of BLOCKED_COMPATIBLE_STATES retries once
+    # through the same headless-Chromium fallback citation_correctness.py
+    # already uses for cited pages (fetch_diagnostics.fetch_via_browser)
+    # before giving up. On by default (unlike classifier_self_consistency_
+    # enabled) because homepage fetches are low-frequency -- a handful per
+    # audit, not once per citation -- so the extra Chromium launch's cost
+    # stays bounded without needing an explicit opt-in.
+    homepage_browser_fallback_enabled: bool = True
+
     # "v1 core" enterprise-LAN edition: hides Compare Models/OpenRouter/
     # batch/multi-model UI surfaces and defaults the KPI picker to the
     # 6-KPI core set (see citepulse/ui/app.py, components.py,

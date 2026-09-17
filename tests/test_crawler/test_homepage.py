@@ -2,6 +2,7 @@ import httpx
 import respx
 from httpx import Response
 
+import citepulse.crawler.homepage as homepage_module
 from citepulse.crawler.homepage import (
     extract_nav_labels,
     extract_nav_links,
@@ -134,3 +135,70 @@ def test_extract_nav_links_caps_at_twenty():
 def test_extract_nav_links_empty_html_returns_empty_list():
     assert extract_nav_links("", _SITE_URL) == []
     assert extract_nav_links("not even html", _SITE_URL) == []
+
+
+# --- fetch_homepage_meta browser fallback (bot/WAF-blocked homepages,
+# e.g. a real godaddy.com 403 from Akamai even with a normal browser
+# User-Agent) ---
+
+_BROWSER_HTML = (
+    "<html><head><title>Browser Title</title></head><body>"
+    '<nav><a href="/pricing">Pricing</a></nav>'
+    "</body></html>"
+)
+
+
+@respx.mock
+def test_fetch_homepage_meta_falls_back_to_browser_on_403(monkeypatch):
+    respx.get(_SITE_URL).mock(return_value=Response(403, text="Access Denied"))
+    monkeypatch.setattr(
+        homepage_module, "fetch_via_browser", lambda url, **kw: _BROWSER_HTML
+    )
+
+    meta = fetch_homepage_meta(_SITE_URL)
+
+    assert meta["available"] is True
+    assert meta["title"] == "Browser Title"
+    assert meta["nav_labels"] == ["Pricing"]
+
+
+@respx.mock
+def test_fetch_homepage_meta_browser_fallback_also_fails_stays_unavailable(monkeypatch):
+    respx.get(_SITE_URL).mock(return_value=Response(403, text="Access Denied"))
+    monkeypatch.setattr(homepage_module, "fetch_via_browser", lambda url, **kw: None)
+
+    meta = fetch_homepage_meta(_SITE_URL)
+
+    assert meta["available"] is False
+    assert meta["nav_labels"] == []
+
+
+@respx.mock
+def test_fetch_homepage_meta_404_never_attempts_browser_fallback(monkeypatch):
+    respx.get(_SITE_URL).mock(return_value=Response(404, text="not found"))
+    calls = []
+    monkeypatch.setattr(
+        homepage_module, "fetch_via_browser", lambda url, **kw: calls.append(url)
+    )
+
+    meta = fetch_homepage_meta(_SITE_URL)
+
+    assert meta["available"] is False
+    assert calls == []
+
+
+@respx.mock
+def test_fetch_homepage_meta_browser_fallback_disabled_by_setting(monkeypatch):
+    from citepulse.settings import get_settings
+
+    respx.get(_SITE_URL).mock(return_value=Response(403, text="Access Denied"))
+    monkeypatch.setattr(get_settings(), "homepage_browser_fallback_enabled", False)
+    calls = []
+    monkeypatch.setattr(
+        homepage_module, "fetch_via_browser", lambda url, **kw: calls.append(url)
+    )
+
+    meta = fetch_homepage_meta(_SITE_URL)
+
+    assert meta["available"] is False
+    assert calls == []

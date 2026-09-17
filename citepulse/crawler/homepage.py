@@ -9,8 +9,16 @@ a confirmed "no title/description/nav".
 
 from urllib.parse import urljoin, urlparse
 
-import httpx
 from bs4 import BeautifulSoup
+
+from citepulse.fetch_diagnostics import (
+    BLOCKED_COMPATIBLE_STATES,
+    REDIRECTED_SUCCESS,
+    SUCCESS,
+    diagnostic_fetch,
+    fetch_via_browser,
+)
+from citepulse.settings import get_settings
 
 USER_AGENT = "CitePulseBot/0.1 (+https://github.com/alsanjayllm/CitePulse)"
 
@@ -82,6 +90,43 @@ def extract_nav_links(html: str, base_url: str) -> list[dict]:
     return links
 
 
+_UNAVAILABLE_META = {
+    "available": False,
+    "title": None,
+    "description": None,
+    "url": None,
+    "nav_labels": [],
+    "nav_links": [],
+}
+
+
+def _fetch_homepage_html(url: str, timeout: float) -> tuple[str | None, str]:
+    """Fetches `url`'s HTML through the shared diagnostic layer (retry/
+    backoff for transient 429/5xx, redirect-chain following) and, when the
+    fetch fails in a way compatible with bot/WAF blocking (settings.
+    homepage_browser_fallback_enabled, default True), falls back to a
+    headless-Chromium navigation -- the same shared fallback citation_
+    correctness.py uses for cited pages. Returns (html_or_None,
+    resolved_url) -- resolved_url is `url` itself when nothing was ever
+    reachable, matching this module's pre-existing "no navigation
+    happened" convention. No SSRF guard: `url` is a user-submitted,
+    already-validated site URL (see sites.py's InvalidSiteURL gate), not
+    LLM-extracted text -- the same trust level this fetch has always had."""
+    diag = diagnostic_fetch(url, timeout=timeout)
+    if diag["classification"] in (SUCCESS, REDIRECTED_SUCCESS) and diag.get("text"):
+        return diag["text"], diag["final_url"]
+
+    if (
+        get_settings().homepage_browser_fallback_enabled
+        and diag["classification"] in BLOCKED_COMPATIBLE_STATES
+    ):
+        browser_html = fetch_via_browser(diag["final_url"])
+        if browser_html:
+            return browser_html, diag["final_url"]
+
+    return None, url
+
+
 def fetch_homepage_meta(url: str, timeout: float = 10.0) -> dict:
     """Returns {"available": bool, "title": str | None,
     "description": str | None, "url": str | None,
@@ -89,34 +134,11 @@ def fetch_homepage_meta(url: str, timeout: float = 10.0) -> dict:
     same anchors as nav_labels but keeping each one's real, resolved,
     same-origin href path (see extract_nav_links) -- additive, so existing
     callers reading only nav_labels/title/description are unaffected."""
-    try:
-        response = httpx.get(
-            url,
-            timeout=timeout,
-            headers={"User-Agent": USER_AGENT},
-            follow_redirects=True,
-        )
-    except httpx.HTTPError:
-        return {
-            "available": False,
-            "title": None,
-            "description": None,
-            "url": None,
-            "nav_labels": [],
-            "nav_links": [],
-        }
+    html, resolved_url = _fetch_homepage_html(url, timeout)
+    if html is None:
+        return dict(_UNAVAILABLE_META)
 
-    if response.status_code != 200:
-        return {
-            "available": False,
-            "title": None,
-            "description": None,
-            "url": None,
-            "nav_labels": [],
-            "nav_links": [],
-        }
-
-    soup = BeautifulSoup(response.text, "lxml")
+    soup = BeautifulSoup(html, "lxml")
 
     title = None
     if soup.title and soup.title.string:
@@ -127,12 +149,11 @@ def fetch_homepage_meta(url: str, timeout: float = 10.0) -> dict:
     if meta and meta.get("content"):
         description = meta["content"].strip() or None
 
-    resolved_url = str(response.url)
     return {
         "available": True,
         "title": title,
         "description": description,
         "url": resolved_url,
-        "nav_labels": extract_nav_labels(response.text),
-        "nav_links": extract_nav_links(response.text, resolved_url),
+        "nav_labels": extract_nav_labels(html),
+        "nav_links": extract_nav_links(html, resolved_url),
     }

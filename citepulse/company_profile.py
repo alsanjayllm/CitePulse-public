@@ -15,11 +15,18 @@ fails.
 
 import re
 
-import httpx
 from bs4 import BeautifulSoup
 
 from citepulse.ai_engines.provider import ask_with_retry
-from citepulse.crawler.homepage import USER_AGENT, extract_nav_labels
+from citepulse.crawler.homepage import extract_nav_labels
+from citepulse.fetch_diagnostics import (
+    BLOCKED_COMPATIBLE_STATES,
+    REDIRECTED_SUCCESS,
+    SUCCESS,
+    diagnostic_fetch,
+    fetch_via_browser,
+)
+from citepulse.settings import get_settings
 
 PLACEHOLDER = (
     "Unable to determine automatically -- please describe this site's "
@@ -149,23 +156,30 @@ def _fetch_homepage_html(url: str, timeout: float = 10.0) -> str | None:
     crawler.homepage.fetch_homepage_meta, which KPI #22/#24 and
     task_generator.py depend on for a narrower, different signal -- so
     extract_company_profile can grow its own signal without touching
-    shared crawler behavior. Mirrors fetch_homepage_meta's own error
-    handling: any httpx.HTTPError or non-200 status returns None, never
-    raised."""
-    try:
-        response = httpx.get(
-            url,
-            timeout=timeout,
-            headers={"User-Agent": USER_AGENT},
-            follow_redirects=True,
-        )
-    except httpx.HTTPError:
-        return None
+    shared crawler behavior. Routes through the shared
+    `fetch_diagnostics.diagnostic_fetch()` layer (bounded retry/backoff for
+    transient 429/5xx, no new HTTP stack) instead of a bare httpx GET, and
+    falls back to the shared headless-Chromium fetch (settings.
+    homepage_browser_fallback_enabled, default True) when the fetch fails
+    in a way compatible with bot/WAF blocking (401/403/429-exhausted/other
+    4xx -- a real-world example: godaddy.com's Akamai edge 403s a plain
+    httpx GET even with a normal browser User-Agent) -- the same fallback
+    citation_correctness.py already uses for cited pages. No SSRF guard:
+    `url` is a user-submitted, already-validated site URL (see sites.py's
+    InvalidSiteURL gate), not LLM-extracted text -- the same trust level
+    this fetch has always had. Returns None (never raises) if neither path
+    produces usable HTML."""
+    diag = diagnostic_fetch(url, timeout=timeout)
+    if diag["classification"] in (SUCCESS, REDIRECTED_SUCCESS) and diag.get("text"):
+        return diag["text"]
 
-    if response.status_code != 200:
-        return None
+    if (
+        get_settings().homepage_browser_fallback_enabled
+        and diag["classification"] in BLOCKED_COMPATIBLE_STATES
+    ):
+        return fetch_via_browser(diag["final_url"])
 
-    return response.text
+    return None
 
 
 def extract_company_profile(site_url: str) -> str:

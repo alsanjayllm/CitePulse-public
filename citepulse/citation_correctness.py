@@ -45,8 +45,10 @@ from citepulse.fetch_diagnostics import (
     REDIRECTED_SUCCESS,
     SUCCESS,
     TRAILING_CITATION_PUNCT,
+    _clean_html_text,
     diagnostic_fetch,
 )
+from citepulse.fetch_diagnostics import fetch_via_browser as _shared_fetch_via_browser
 
 # Cited URLs come from LLM-generated answer text seeded with live web-search
 # content -- not trusted. Cap redirect hops so _is_safe_url's re-check on
@@ -194,14 +196,6 @@ def fetch_cited_page_text(cited_url: str, timeout: float = 10.0) -> str | None:
     return visible or None
 
 
-def _clean_html_text(html: str) -> str | None:
-    soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(["script", "style", "noscript"]):
-        tag.decompose()
-    visible = re.sub(r"\s+", " ", soup.get_text(" ", strip=True)).strip()
-    return visible or None
-
-
 # Browser fallback (plan section 6): a bounded number of Playwright
 # navigations per audit run, only ever attempted for a citation whose HTTP
 # fetch failed in a way compatible with bot/WAF/client-fingerprint blocking
@@ -213,72 +207,24 @@ _MAX_BROWSER_FALLBACKS_PER_RUN = 5
 
 
 def fetch_via_browser(url: str, timeout_seconds: float = 15.0) -> str | None:
-    """Fetches `url` via a fresh headless Chromium navigation (same launch
-    pattern as citepulse.screenshot/task_readiness.harness -- no second
-    browser stack) and returns cleaned visible text, or None on any
-    failure. Callers MUST have already validated `url` with `_is_safe_url`
-    before calling this.
-
-    Unlike a plain httpx redirect (where `diagnostic_fetch`'s `url_guard`
-    re-checks every hop before requesting it), a browser navigation can
-    itself be redirected -- by an HTTP 3xx *or* client-side JS/meta-refresh
-    -- to a target this function never explicitly requested. So every
-    top-level document navigation (the initial load and any redirect/
-    client-side navigation Chromium performs) is intercepted via
-    `page.route()` and re-checked with `_is_safe_url` before it's allowed
-    through; an unsafe navigation is aborted rather than followed, closing
-    the gap an attacker-controlled citation URL could otherwise use to
-    redirect this fetch at an internal address post-initial-check."""
-    from playwright.sync_api import Error as PlaywrightError
-    from playwright.sync_api import sync_playwright
-
-    from citepulse.settings import get_settings
-
-    settings = get_settings()
-
-    def _guard_navigation(route):
-        request = route.request
-        if request.resource_type == "document" and not _is_safe_url(request.url):
-            route.abort()
-        else:
-            route.continue_()
-
-    try:
-        with sync_playwright() as playwright:
-            try:
-                browser = playwright.chromium.launch(
-                    headless=settings.task_readiness_headless,
-                    proxy=(
-                        {"server": settings.egress_proxy}
-                        if settings.egress_proxy
-                        else None
-                    ),
-                )
-            except PlaywrightError:
-                return None
-            try:
-                page = browser.new_page(user_agent=settings.task_readiness_user_agent)
-                page.route("**/*", _guard_navigation)
-                page.goto(
-                    url,
-                    wait_until="domcontentloaded",
-                    timeout=timeout_seconds * 1000,
-                )
-                # If the final document ended up somewhere unsafe despite
-                # the per-navigation guard above (e.g. a fragment-only
-                # client-side redirect the guard doesn't see as a new
-                # document request), refuse to return its content.
-                if not _is_safe_url(page.url):
-                    return None
-                html = page.content()
-            except PlaywrightError:
-                return None
-            finally:
-                browser.close()
-    except Exception:  # noqa: BLE001 -- never raise into the KPI pipeline,
-        # same contract as citepulse.screenshot.capture_homepage_screenshot.
-        return None
-    if not html or not html.strip():
+    """Thin, SSRF-guarded wrapper over the shared
+    `fetch_diagnostics.fetch_via_browser` (the launch/extraction logic now
+    lives there, generalized for reuse by company_profile.py/crawler/
+    homepage.py's own browser fallback). The shared function returns raw
+    HTML (crawler/homepage.py needs real markup to parse); this module
+    only ever needs plain text for the LLM entailment check, so this
+    wrapper cleans it via the shared `_clean_html_text` before returning --
+    preserving this function's original cleaned-text contract byte-for-
+    byte. Kept as a module-level function here -- rather than calling the
+    shared one directly at each call site -- so
+    `fetch_cited_page_with_diagnostics` below always applies `_is_safe_url`
+    to this module's untrusted, LLM-extracted citation URLs, and so
+    existing tests that monkeypatch `citation_correctness.fetch_via_browser`
+    keep working unchanged."""
+    html = _shared_fetch_via_browser(
+        url, timeout_seconds=timeout_seconds, url_guard=_is_safe_url
+    )
+    if not html:
         return None
     return _clean_html_text(html)
 

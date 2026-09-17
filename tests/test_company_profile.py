@@ -297,3 +297,63 @@ def test_fetch_homepage_html_returns_none_on_connect_error():
     respx.get(_SITE_URL).mock(side_effect=httpx.ConnectError("boom"))
 
     assert company_profile_module._fetch_homepage_html(_SITE_URL) is None
+
+
+# --- _fetch_homepage_html browser fallback (bot/WAF-blocked homepages,
+# e.g. a real godaddy.com 403 from Akamai even with a normal browser
+# User-Agent) ---
+
+
+@respx.mock
+def test_fetch_homepage_html_falls_back_to_browser_on_403(monkeypatch):
+    respx.get(_SITE_URL).mock(return_value=Response(403, text="Access Denied"))
+    monkeypatch.setattr(
+        company_profile_module,
+        "fetch_via_browser",
+        lambda url, **kw: "<html>Browser-fetched homepage.</html>",
+    )
+
+    html = company_profile_module._fetch_homepage_html(_SITE_URL)
+
+    assert html == "<html>Browser-fetched homepage.</html>"
+
+
+@respx.mock
+def test_fetch_homepage_html_browser_fallback_also_fails_returns_none(monkeypatch):
+    respx.get(_SITE_URL).mock(return_value=Response(403, text="Access Denied"))
+    monkeypatch.setattr(
+        company_profile_module, "fetch_via_browser", lambda url, **kw: None
+    )
+
+    assert company_profile_module._fetch_homepage_html(_SITE_URL) is None
+
+
+@respx.mock
+def test_fetch_homepage_html_404_never_attempts_browser_fallback(monkeypatch):
+    respx.get(_SITE_URL).mock(return_value=Response(404, text="not found"))
+    calls = []
+    monkeypatch.setattr(
+        company_profile_module,
+        "fetch_via_browser",
+        lambda url, **kw: calls.append(url),
+    )
+
+    assert company_profile_module._fetch_homepage_html(_SITE_URL) is None
+    assert calls == []
+
+
+@respx.mock
+def test_fetch_homepage_html_browser_fallback_disabled_by_setting(monkeypatch):
+    from citepulse.settings import get_settings
+
+    respx.get(_SITE_URL).mock(return_value=Response(403, text="Access Denied"))
+    monkeypatch.setattr(get_settings(), "homepage_browser_fallback_enabled", False)
+    calls = []
+    monkeypatch.setattr(
+        company_profile_module,
+        "fetch_via_browser",
+        lambda url, **kw: calls.append(url),
+    )
+
+    assert company_profile_module._fetch_homepage_html(_SITE_URL) is None
+    assert calls == []
