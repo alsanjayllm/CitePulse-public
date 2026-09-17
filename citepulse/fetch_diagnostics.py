@@ -411,11 +411,25 @@ def fetch_via_browser(
             try:
                 page = browser.new_page(user_agent=settings.task_readiness_user_agent)
                 page.route("**/*", _guard_navigation)
-                page.goto(
+                nav_response = page.goto(
                     url,
                     wait_until="domcontentloaded",
                     timeout=timeout_seconds * 1000,
                 )
+                # A WAF/edge block (e.g. Akamai) commonly serves its
+                # "Access Denied" interstitial with a real 4xx/5xx status
+                # even to a full browser -- Chromium still renders that
+                # body and page.goto() doesn't raise, so a caller that only
+                # checked "did we get non-empty HTML back" would silently
+                # treat the block page itself as real site content (a
+                # confirmed real case: godaddy.com's Akamai edge returns
+                # this to the browser fallback for the identical reason it
+                # blocked the plain httpx GET -- the fallback's own
+                # `task_readiness_user_agent` still self-identifies as a
+                # bot). Only a response the server itself called
+                # successful counts as real content here.
+                if nav_response is not None and nav_response.status >= 400:
+                    return None
                 # If the final document ended up somewhere unsafe despite
                 # the per-navigation guard above (e.g. a fragment-only
                 # client-side redirect the guard doesn't see as a new
