@@ -50,6 +50,35 @@ is the opposite on both counts:
   (find pricing, fill a form). Almost no other tool, free or paid, tests
   this today.
 
+## How CitePulse compares
+
+CitePulse isn't trying to out-feature the big AEO/GEO SaaS platforms — it's
+solving a different problem (local, free, auditable) for a different buyer
+(a solo developer, a privacy-conscious team, or a locked-down corporate
+machine that can't send brand data to a third party). For context, here's
+how it stacks up against the three platforms most commonly named as
+category leaders in 2026 buyer comparisons: [Profound](https://www.tryprofound.com/),
+[AthenaHQ](https://athenahq.ai/), and [Scrunch AI](https://scrunch.com/).
+
+| | **CitePulse** | Profound | AthenaHQ | Scrunch AI |
+|---|---|---|---|---|
+| Deployment | Local, self-hosted (your machine) | Cloud SaaS | Cloud SaaS | Cloud SaaS |
+| Starting price | **$0** (local Ollama) | $99/mo (ChatGPT-only tier) | $295/mo | $250/mo |
+| Data leaves your machine? | No — nothing sent to a third party by default | Yes | Yes | Yes |
+| Open source | Yes (MIT) | No | No | No |
+| AI engines tracked | ChatGPT, Perplexity, Gemini, or any OpenRouter model, plus a free local model | ChatGPT, Perplexity, Gemini, Google AI Overviews | ChatGPT, Perplexity, Gemini, Google AI Overviews | ChatGPT, Perplexity, Gemini, Google AI Overviews |
+| Citation rate / AI share of voice | Yes | Yes | Yes | Yes |
+| llms.txt / AI crawl accessibility | Yes | Partial | Partial | Yes (AXP) |
+| AI agent task-completion testing (can an agent actually *use* your site, not just cite it) | Yes | No | No | No |
+| Multi-model / cross-engine comparison in one run | Yes | Yes | Yes | Yes |
+| Enterprise compliance (SOC 2, etc.) | N/A — no data ever leaves your machine | Not published | Not published | SOC 2 Type II |
+| Best fit | Developers, indie sites, privacy-first teams, corporate-LAN environments | Enterprise marketing/PR/SEO teams wanting prompt-volume depth | Mid-market AEO/SEO teams wanting guided reporting | Enterprise teams wanting monitoring + optimization + AI content delivery |
+
+Pricing and feature details for Profound, AthenaHQ, and Scrunch AI are
+publicly listed and change frequently — see each vendor's site for current
+numbers. CitePulse's own numbers above are the only ones we control, and
+they're pulled straight from this repo.
+
 ## System requirements
 
 - Python 3.11+
