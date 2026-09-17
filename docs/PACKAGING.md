@@ -82,13 +82,24 @@ checklist before treating any build as release-ready:
    Attachment-Manager unsigned-file warning, not the newer blue "Windows
    protected your PC" SmartScreen screen (that one is specific to EXE
    reputation checks; a `.bat` entry point trips this one instead). A
-   second, separate **Windows Defender Firewall alert** for
-   `citepulse.exe` used to also appear once Streamlit started listening
-   for connections — fixed as of the `--server.address=127.0.0.1` change
-   below (`citepulse/cli.py`'s `_launch_streamlit()`), which forces a
-   loopback-only bind instead of Streamlit's own `0.0.0.0` default, so
-   this firewall prompt should no longer appear on a fresh run; re-verify
-   on the next packaged build.
+   second, separate **Windows Defender Firewall alert** ("has blocked
+   some features of this app... on all public and private networks")
+   also appears for `citepulse.exe` once Streamlit starts listening for
+   connections. The `--server.address=127.0.0.1` change
+   (`citepulse/cli.py`'s `_launch_streamlit()`, forcing a loopback-only
+   bind instead of Streamlit's own `0.0.0.0` default) was originally
+   expected to make this prompt stop appearing entirely -- re-tested on a
+   fresh download of the packaged v1.6.2 zip (2026-09-17) and that
+   expectation was wrong: the prompt still appears every time, because
+   Windows' firewall consent gate fires on any first `listen()` call from
+   an unrecognized binary, regardless of which address it bound to. What
+   the loopback-only bind actually buys you is narrower but still real:
+   nothing on the LAN can reach the app even if a user checks "Public
+   networks" and clicks **Allow access** (the checkbox default shown in
+   the dialog) -- confirmed working end-to-end this session. Clicking
+   **Cancel** instead was not tested, but is expected to also leave the
+   app working, since Windows Firewall does not filter loopback-only
+   traffic by default -- untested, not claimed as verified.
 7. Record the tested Windows version/account in the commit/PR description.
    This is a manual, human-attested step; there's no CI automation for it
    yet (see "Not done yet" below).

@@ -86,10 +86,17 @@ citepulse.exe setup
 citepulse.exe audit https://example.com
 ```
 
-Windows may show an "unrecognized publisher" SmartScreen warning the
-first time you run it — click **More info**, then **Run anyway**. That's
-expected for an open-source tool without a paid code-signing certificate,
-not a sign anything is wrong.
+Windows will show two unsigned-app warnings the first time you run it —
+both expected for an open-source tool without a paid code-signing
+certificate, neither a sign anything is wrong:
+
+1. Double-clicking `Start CitePulse.bat` shows an **"Open File – Security
+   Warning"** dialog ("Unknown Publisher") — click **Run**.
+2. Once the app starts listening locally, Windows Defender Firewall
+   shows **"has blocked some features of this app"** for `citepulse.exe`
+   — click **Allow access**. CitePulse only listens on `127.0.0.1`
+   (your own machine), never on the network, regardless of what you
+   click here.
 
 ## Example output
 
