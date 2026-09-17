@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse
 
 import httpx
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger("citepulse.fetch_diagnostics")
 
@@ -332,3 +333,117 @@ def diagnostic_fetch(
         "content_available": content_available,
         "text": text,
     }
+
+
+def _clean_html_text(html: str) -> str | None:
+    """Strips script/style/noscript and collapses whitespace, returning
+    visible page text or None when nothing survives. Shared by every
+    browser-fallback fetch below and by citation_correctness.py's own
+    plain-httpx fetch, so there's exactly one HTML-to-text implementation."""
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
+    visible = re.sub(r"\s+", " ", soup.get_text(" ", strip=True)).strip()
+    return visible or None
+
+
+def fetch_via_browser(
+    url: str,
+    timeout_seconds: float = 15.0,
+    url_guard: "callable | None" = None,
+) -> str | None:
+    """Fetches `url` via a fresh headless Chromium navigation (same launch
+    pattern as citepulse.screenshot/task_readiness.harness -- no second
+    browser stack) and returns the page's **raw HTML** (`page.content()`),
+    or None on any failure. Originally built for citation_correctness.py's
+    per-citation fallback (bot/WAF-blocked cited pages, which only needs
+    plain text for an LLM entailment check) and generalized here so
+    company_profile.py/crawler/homepage.py's homepage fetches can reuse the
+    identical launch/extraction logic too -- those callers need real HTML
+    (to parse <title>/meta description/nav anchors via BeautifulSoup), so
+    this returns raw markup and leaves text-cleaning to the caller
+    (`_clean_html_text`, right above, for a caller that wants plain text
+    the way citation_correctness.py's own `fetch_via_browser` wrapper
+    does).
+
+    `url_guard`, when given, is called before the initial navigation and
+    re-checked on every subsequent top-level document navigation (a
+    browser navigation can be redirected by an HTTP 3xx *or* client-side
+    JS/meta-refresh to a target this function never explicitly requested,
+    unlike `diagnostic_fetch`'s manual redirect-following, which only sees
+    HTTP redirects) via `page.route()` -- an unsafe navigation is aborted
+    rather than followed. Callers fetching untrusted, LLM-extracted URLs
+    (citation_correctness.py) MUST pass an SSRF guard; callers fetching a
+    trusted, user-submitted site URL (company_profile.py, crawler/
+    homepage.py) may omit it, matching those callers' existing unguarded
+    trust level for the plain-httpx path they already use."""
+    from playwright.sync_api import Error as PlaywrightError
+    from playwright.sync_api import sync_playwright
+
+    from citepulse.settings import get_settings
+
+    settings = get_settings()
+
+    def _guard_navigation(route):
+        request = route.request
+        if (
+            url_guard is not None
+            and request.resource_type == "document"
+            and not url_guard(request.url)
+        ):
+            route.abort()
+        else:
+            route.continue_()
+
+    try:
+        with sync_playwright() as playwright:
+            try:
+                browser = playwright.chromium.launch(
+                    headless=settings.task_readiness_headless,
+                    proxy=(
+                        {"server": settings.egress_proxy}
+                        if settings.egress_proxy
+                        else None
+                    ),
+                )
+            except PlaywrightError:
+                return None
+            try:
+                page = browser.new_page(user_agent=settings.task_readiness_user_agent)
+                page.route("**/*", _guard_navigation)
+                nav_response = page.goto(
+                    url,
+                    wait_until="domcontentloaded",
+                    timeout=timeout_seconds * 1000,
+                )
+                # A WAF/edge block (e.g. Akamai) commonly serves its
+                # "Access Denied" interstitial with a real 4xx/5xx status
+                # even to a full browser -- Chromium still renders that
+                # body and page.goto() doesn't raise, so a caller that only
+                # checked "did we get non-empty HTML back" would silently
+                # treat the block page itself as real site content (a
+                # confirmed real case: godaddy.com's Akamai edge returns
+                # this to the browser fallback for the identical reason it
+                # blocked the plain httpx GET -- the fallback's own
+                # `task_readiness_user_agent` still self-identifies as a
+                # bot). Only a response the server itself called
+                # successful counts as real content here.
+                if nav_response is not None and nav_response.status >= 400:
+                    return None
+                # If the final document ended up somewhere unsafe despite
+                # the per-navigation guard above (e.g. a fragment-only
+                # client-side redirect the guard doesn't see as a new
+                # document request), refuse to return its content.
+                if url_guard is not None and not url_guard(page.url):
+                    return None
+                html = page.content()
+            except PlaywrightError:
+                return None
+            finally:
+                browser.close()
+    except Exception:  # noqa: BLE001 -- never raise into the KPI pipeline,
+        # same contract as citepulse.screenshot.capture_homepage_screenshot.
+        return None
+    if not html or not html.strip():
+        return None
+    return html

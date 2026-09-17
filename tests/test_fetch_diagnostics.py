@@ -25,6 +25,7 @@ from citepulse.fetch_diagnostics import (
     TIMEOUT,
     TRAILING_CITATION_PUNCT,
     URL_PARSE_ERROR,
+    _clean_html_text,
     diagnostic_fetch,
     normalize_citation_url,
 )
@@ -311,3 +312,29 @@ def test_sensitive_headers_are_never_returned():
     result = diagnostic_fetch("https://example.com/a", sleep=_NOSLEEP)
     assert "set-cookie" not in result["headers"]
     assert "authorization" not in result["headers"]
+
+
+# --- _clean_html_text (pure HTML-to-text, shared by every browser-fallback
+# fetch and by citation_correctness.py's own plain-httpx fetch) -----------
+#
+# fetch_via_browser itself launches real Playwright/Chromium, so -- matching
+# this codebase's existing convention (test_citation_correctness.py
+# monkeypatches `fetch_via_browser` wholesale at every call site rather than
+# mocking Playwright internals) -- it isn't unit-tested against a mocked
+# browser here either; its callers' own tests (test_citation_correctness.py,
+# test_company_profile.py, test_crawler/test_homepage.py) each monkeypatch
+# it at the module-attribute level instead.
+
+
+def test_clean_html_text_strips_script_style_and_collapses_whitespace():
+    html = (
+        "<html><head><style>body{color:red}</style></head><body>"
+        "<script>alert('x')</script>\n\n<p>Hello   world</p>\t"
+        "<noscript>fallback</noscript></body></html>"
+    )
+    assert _clean_html_text(html) == "Hello world"
+
+
+def test_clean_html_text_returns_none_when_nothing_visible_survives():
+    assert _clean_html_text("<html><head></head><body></body></html>") is None
+    assert _clean_html_text("<script>only script content</script>") is None
