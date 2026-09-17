@@ -1,0 +1,139 @@
+# CitePulse
+
+[![Tests](https://github.com/alsanjayllm/CitePulse-public/actions/workflows/test.yml/badge.svg)](https://github.com/alsanjayllm/CitePulse-public/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Is your site cited by AI answers — and can an AI agent actually *use* it,
+not just read about it?
+
+CitePulse is a small, local-first, open-source AEO (Answer Engine
+Optimization) audit tool. It runs entirely on your own machine — no
+account, no API key, no data sent to a third party — using a local Ollama
+model instead of a paid LLM API by default.
+
+**Status: v1 complete, v2 in progress.** Six KPIs are wired end to end
+today: llms.txt Readiness, AI Crawl Accessibility, Citation Rate, AI
+Share of Voice, Task Completion Success Rate, and Interaction Readiness —
+plus per-run/multi-model comparison (local Ollama or an optional
+OpenRouter cloud model), a KPI subset picker, an N-run trend view, and a
+"v1 core" zip-and-run Windows build for a locked-down corporate machine.
+Every KPI follows the same design principle: **never fabricate a score**.
+When something can't be measured (a blocked fetch, a rate-limited
+request, an ambiguous LLM answer), CitePulse reports "not determined,"
+never a guessed number. See [`docs/PACKAGING.md`](docs/PACKAGING.md) for
+the Windows build, and [CONTRIBUTING.md](CONTRIBUTING.md) if you want to
+add a KPI or open a PR.
+
+## Why CitePulse
+
+Most AEO/GEO visibility tools are cloud SaaS: you send them your brand and
+competitor data, and pay per query against a commercial AI API. CitePulse
+is the opposite on both counts:
+
+- **100% local and private** — nothing about your site or your prompts
+  leaves your machine.
+- **Zero recurring cost** — a local Ollama model by default; bring your own
+  OpenAI/Anthropic/Perplexity key only if you want to test against a real
+  commercial engine instead. Web search for citation checks works the same
+  way: free DuckDuckGo/Google News out of the box, with an optional
+  Serper/Tavily/Bing key only if you want to extend past DuckDuckGo's
+  free-tier limits.
+- **Open source and auditable** — read exactly what it measures and how.
+- **Honest about what it's measuring** — CitePulse's citation-rate/
+  share-of-voice metrics reflect *this run's own model* synthesizing
+  answers over live web search results — that's a useful, repeatable
+  proxy, but it is explicitly not a direct measurement of what ChatGPT,
+  Perplexity, or Google's AI Overviews would actually say. Every report
+  says so.
+- **AI Assistant Task Readiness** — beyond "are you cited," CitePulse tests
+  whether an autonomous AI agent can actually complete a task on your site
+  (find pricing, fill a form). Almost no other tool, free or paid, tests
+  this today.
+
+## System requirements
+
+- Python 3.11+
+- 8GB RAM minimum, 16GB recommended (for running a local LLM comfortably)
+- ~5-10GB free disk (model weights + browser download)
+- No GPU required — CPU-only works, just slower. An NVIDIA/Apple/AMD GPU is
+  used automatically by Ollama if present.
+
+## Quick start
+
+```bash
+git clone https://github.com/alsanjayllm/CitePulse-public.git
+cd CitePulse-public
+pip install -e ".[dev]"
+citepulse setup
+citepulse audit https://example.com
+```
+
+## Portable Windows download (no admin, no Python required)
+
+No corporate machine, no problem: a standalone Windows build needs
+nothing installed — no Python, no pip, no admin rights, no installer.
+
+1. Build it (or grab a build someone else produced): `build_dist.bat`
+   produces `dist\citepulse-win-x64-<version>.zip`.
+2. Unzip it anywhere you can write — Desktop, a USB drive, wherever.
+   Keep all the files in the unzipped folder together; don't move just
+   `citepulse.exe` on its own, it needs the rest of the folder alongside
+   it.
+3. Run it from inside that folder:
+
+```bash
+citepulse.exe setup
+citepulse.exe audit https://example.com
+```
+
+Windows may show an "unrecognized publisher" SmartScreen warning the
+first time you run it — click **More info**, then **Run anyway**. That's
+expected for an open-source tool without a paid code-signing certificate,
+not a sign anything is wrong.
+
+## Example output
+
+Real output from `citepulse audit`, not a mockup (run IDs/timestamps
+trimmed for readability):
+
+A site with no `llms.txt`:
+
+```
+# CitePulse Report — https://example.com
+Run: ... | Status: completed | Completed: ...
+
+## KPI #46 — llms.txt Readiness
+Value: 0.0 score_0_to_3 | Band: critical
+**Remediation** (high severity): No llms.txt file was found at
+https://example.com/llms.txt (checked https://example.com/llms.txt,
+https://example.com/.well-known/llms.txt). Publish a plain-text or
+Markdown file at /llms.txt listing your site's key pages for AI agents
+and crawlers, starting with a top-level title (H1) and organized under
+H2 section headers with linked pages underneath each.
+_Business KPI context (illustrative): Technical debt index (score) (spacelift)_
+```
+
+A site that already publishes one well:
+
+```
+# CitePulse Report — https://github.com
+Run: ... | Status: completed | Completed: ...
+
+## KPI #46 — llms.txt Readiness
+Value: 3.0 score_0_to_3 | Band: best_in_class
+No gap detected — nothing to remediate.
+_Business KPI context (illustrative): Technical debt index (score) (spacelift)_
+```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for what's in scope and how to report a
+concern.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

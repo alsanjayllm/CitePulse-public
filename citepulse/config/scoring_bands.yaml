@@ -1,0 +1,65 @@
+# Static, read-only scoring configuration for metric banding and
+# prioritization -- loaded the same way remediation.yaml /
+# model_catalog.yaml already are (a module-level cached YAML read), NOT a
+# runtime audit_config.yaml engine (see the Phase 0 plan's locked-in
+# decision to adapt the SRS into CitePulse's existing static-config +
+# SQLModel architecture rather than introduce a parallel config engine).
+#
+# Two consumers:
+#   - Phase 4 (banding): the new citation/share-of-voice KPIs read the
+#     per-band thresholds here and apply them through the existing
+#     kpis/common.py sample-size-floor gating + confidence.py
+#     wilson_confidence(). Thresholds below follow the SRS's own FR-5.5
+#     worked examples.
+#   - Phase 6 (prioritization): reporting.compute_priority_score() reads
+#     topic_importance_weights here unless overridden per-site via
+#     Site.topic_weight_overrides.
+#
+# Human-editable; every value is an explicit, documented default. All
+# thresholds are lower-bound (inclusive): a rate of exactly 60.0 with
+# N >= 50 is "best_in_class".
+
+# FR-5.5 worked-example banding for the composite citation metrics that
+# land in Phase 4. Keys are the KPI metric name; each maps a band to its
+# (min_rate_percent, min_n). Lower bands are implied by not meeting the
+# higher threshold; the sample-size floor is enforced separately by
+# kpis/common.py (a band can also be downgraded by low N there).
+metric_bands:
+  citation_rate:
+    best_in_class: {min_rate_percent: 60.0, min_n: 50}
+    good: {min_rate_percent: 40.0, min_n: 30}
+  mention_rate:
+    best_in_class: {min_rate_percent: 60.0, min_n: 50}
+    good: {min_rate_percent: 40.0, min_n: 30}
+  recommendation_rate:
+    best_in_class: {min_rate_percent: 60.0, min_n: 50}
+    good: {min_rate_percent: 40.0, min_n: 30}
+  interaction_success_rate:
+    best_in_class: {min_rate_percent: 95.0, min_n: 1}
+    good: {min_rate_percent: 85.0, min_n: 1}
+
+# FR-5.5: the confidence band gate for proportion metrics. "Low
+# confidence" labels are applied when N is below the floor or the Wilson
+# interval is wider than this many percentage points.
+confidence:
+  min_n_for_rate: 30
+  max_interval_width_percent: 20.0
+  # A "best in class" band must never be assigned below this N for the
+  # *key* share/citation metrics (FR-5.5), even if the rate threshold is
+  # otherwise met.
+  min_n_for_best_in_class: 50
+
+# FR-9 / FR-1: default topic-importance weights for compute_priority_score().
+# business_value is a per-topic-cluster 0-1 weight; frequencies come from
+# KPI raw_data at render time. A Site can override per-cluster weights via
+# Site.topic_weight_overrides (dict keyed by the same cluster names).
+topic_importance_weights:
+  pricing: 1.0
+  purchase: 1.0
+  product: 0.8
+  use_cases: 0.8
+  integrations: 0.6
+  security: 0.6
+  support: 0.5
+  awareness: 0.4
+  evaluation: 0.7

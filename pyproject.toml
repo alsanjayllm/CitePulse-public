@@ -1,0 +1,49 @@
+[project]
+name = "citepulse"
+version = "1.6.2"
+description = "Local-first, open-source AEO audit tool: is your site cited by AI, and can an AI agent actually use it?"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1",
+    "sqlmodel>=0.0.21",
+    "httpx>=0.27",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.2",
+    "pydantic-settings>=2.4",
+    "pyyaml>=6.0",
+    "jinja2>=3.1",
+    "psutil>=6.0",
+    "ddgs>=9.0",
+    "playwright>=1.47",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "respx>=0.21",
+    "ruff>=0.6",
+]
+build = [
+    "pyinstaller>=6.10",
+]
+ui = [
+    "streamlit>=1.44",
+]
+
+[project.scripts]
+citepulse = "citepulse.cli:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

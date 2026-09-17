@@ -1,0 +1,140 @@
+# Curated OpenRouter model list -- mirrors config/model_catalog.yaml's
+# shape (used by citepulse.model_recommender.list_openrouter_models()),
+# but with context_length instead of approx_ram_gb: no RAM concept
+# applies to a cloud model, and there's no "installed" concept either --
+# every entry here is equally available given a valid OpenRouter API key.
+#
+# Entries are grouped into three fixed buckets for the Compare Models
+# picker and the free-model rotation pool (see
+# citepulse.ai_engines.provider._rotate_free_model), curated for
+# CitePulse's own AEO/AI-readability workload (narrative generation,
+# classification calls like recommendation_rate/message_accuracy, the
+# task-readiness agent loop):
+#   - free:    zero-cost OpenRouter models, good enough for CitePulse's
+#              classification/narrative calls. NOTE: free-tier endpoints
+#              share a small capacity pool and are rate-limited upstream
+#              after only a handful of burst calls (no Retry-After header
+#              is sent). CitePulse therefore rotates across ALL entries in
+#              this bucket (round-robin, paced) when a free model is
+#              selected, so a run's many back-to-back LLM calls spread
+#              across the pool instead of exhausting one shared free pool.
+#   - popular: well-known, high-quality general models
+#   - cheap:   low $/token, fast -- suited to CitePulse's bulk per-probe
+#              classifier calls
+#
+# `cost_per_1m_tokens` and `popularity_rank` are a manually maintained,
+# point-in-time snapshot -- like model_catalog.yaml's approx_ram_gb, this
+# is NOT read from a live OpenRouter pricing/rankings API (no such
+# integration exists in CitePulse) and will drift from OpenRouter's
+# actual live numbers over time; update by hand when it goes stale.
+# Free-tier model ids on OpenRouter also change over time -- re-verify
+# the `:free` entries still exist/are still free periodically.
+#
+# `name` is CitePulse's own dispatch-prefixed model string (see
+# citepulse.ai_engines.provider._split_model) -- "openrouter:" followed
+# by OpenRouter's own model id, exactly as OpenRouter's API expects it
+# once the prefix is stripped.
+#
+# Last verified: 2026-09-03 (each free entry actually served a 200 via
+# the public API)
+
+# -- free (rotation pool) ---------------------------------------------------
+# Entries verified working on 2026-09-03; the whole bucket is the free
+# rotation pool, so more (working) entries = more headroom before the
+# pool itself gets throttled. Excludes models that 400/403/404'd
+# (gemma-4-27b-it, grok-4-fast, thinkingmachines/inkling) and the
+# content-safety-only model (nvidia/nemotron-3.5-content-safety).
+- name: "openrouter:minimax/minimax-m3:free"
+  display_name: "MiniMax M3 (OpenRouter, Free)"
+  context_length: 1048576
+  bucket: "free"
+  cost_per_1m_tokens: 0.00
+  popularity_rank: 3
+- name: "openrouter:nvidia/nemotron-3.5-lightning:free"
+  display_name: "Nemotron 3.5 Lightning (OpenRouter, Free)"
+  context_length: 1000000
+  bucket: "free"
+  cost_per_1m_tokens: 0.00
+  popularity_rank: 4
+- name: "openrouter:nvidia/nemotron-3-super-120b-a12b:free"
+  display_name: "Nemotron 3 Super (OpenRouter, Free)"
+  context_length: 262144
+  bucket: "free"
+  cost_per_1m_tokens: 0.00
+  popularity_rank: 11
+- name: "openrouter:cohere/north-mini-code:free"
+  display_name: "Cohere North Mini Code (OpenRouter, Free)"
+  context_length: 256000
+  bucket: "free"
+  cost_per_1m_tokens: 0.00
+  popularity_rank: 16
+- name: "openrouter:inclusionai/ling-3.0-flash-fin:free"
+  display_name: "Ling 3.0 Flash Fin (OpenRouter, Free)"
+  context_length: 262144
+  bucket: "free"
+  cost_per_1m_tokens: 0.00
+  popularity_rank: 18
+- name: "openrouter:dots-studio/dots-3-note-preview:free"
+  display_name: "Dots3-Note Preview (OpenRouter, Free)"
+  context_length: 512000
+  bucket: "free"
+  cost_per_1m_tokens: 0.00
+  popularity_rank: 20
+- name: "openrouter:liquid/lfm-2.5-2.6b:free"
+  display_name: "LiquidAI LFM2.5-2.6B (OpenRouter, Free)"
+  context_length: 65536
+  bucket: "free"
+  cost_per_1m_tokens: 0.00
+  popularity_rank: 25
+- name: "openrouter:google/gemma-4-31b-it:free"
+  display_name: "Gemma 4 31B (OpenRouter, Free)"
+  context_length: 262144
+  bucket: "free"
+  cost_per_1m_tokens: 0.00
+  popularity_rank: 10
+- name: "openrouter:google/gemma-4-26b-a4b-it:free"
+  display_name: "Gemma 4 26B A4B (OpenRouter, Free)"
+  context_length: 262144
+  bucket: "free"
+  cost_per_1m_tokens: 0.00
+  popularity_rank: 12
+- name: "openrouter:z-ai/glm-5.2:free"
+  display_name: "GLM 5.2 (OpenRouter, Free)"
+  context_length: 256000
+  bucket: "free"
+  cost_per_1m_tokens: 0.00
+  popularity_rank: 14
+- name: "openrouter:minimax/minimax-m2.7:free"
+  display_name: "MiniMax M2.7 (OpenRouter, Free)"
+  context_length: 196608
+  bucket: "free"
+  cost_per_1m_tokens: 0.00
+  popularity_rank: 21
+
+# -- popular (2) -------------------------------------------------------------
+- name: "openrouter:anthropic/claude-sonnet-5"
+  display_name: "Claude Sonnet 5 (OpenRouter)"
+  context_length: 1000000
+  bucket: "popular"
+  cost_per_1m_tokens: 2.00
+  popularity_rank: 1
+- name: "openrouter:openai/gpt-4o"
+  display_name: "GPT-4o (OpenRouter)"
+  context_length: 128000
+  bucket: "popular"
+  cost_per_1m_tokens: 2.50
+  popularity_rank: 2
+
+# -- cheap / cost-effective (2) ----------------------------------------------
+- name: "openrouter:openai/gpt-4o-mini"
+  display_name: "GPT-4o mini (OpenRouter)"
+  context_length: 128000
+  bucket: "cheap"
+  cost_per_1m_tokens: 0.15
+  popularity_rank: 4
+- name: "openrouter:google/gemini-3.5-flash-lite"
+  display_name: "Gemini 3.5 Flash Lite (OpenRouter)"
+  context_length: 1048576
+  bucket: "cheap"
+  cost_per_1m_tokens: 0.30
+  popularity_rank: 6

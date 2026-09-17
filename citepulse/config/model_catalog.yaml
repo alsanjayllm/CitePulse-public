@@ -1,0 +1,59 @@
+# Curated, real, currently-pullable Ollama library tags -- used by
+# citepulse.model_recommender.recommend_models() to rank/filter which
+# local models to suggest in the UI's model picker
+# (citepulse.ui.components.render_model_picker). Not an exhaustive list of
+# everything in Ollama's library, just a reasonable dozen-ish spread
+# across size (RAM footprint) and specialty (general chat vs. code).
+#
+# approx_ram_gb is a rough, deliberately conservative estimate for
+# quantized inference (roughly 1-1.2x the model's parameter count in GB)
+# -- used only to decide whether a not-yet-installed model is worth
+# suggesting on this machine, never surfaced as a precise figure.
+#
+# tags is a list containing "general" and/or "code" -- a model can carry
+# both when it's a capable general-purpose model that's also fine at code
+# (e.g. qwen2.5:14b), but a narrowly code-tuned model (e.g.
+# deepseek-coder-v2:16b) carries only "code".
+#
+# recommended: true marks the one entry model_recommender.recommend_models()
+# should prefer over RAM-fit/domain-match tiebreaks when it's installed and
+# fits this machine's RAM -- it's the model the UI's picker labels
+# "(recommended)" by default. Omitted (defaults false) on every other entry.
+
+- name: llama3.1:8b
+  approx_ram_gb: 8
+  tags: [general]
+  recommended: true
+- name: llama3.1:70b
+  approx_ram_gb: 48
+  tags: [general]
+- name: mistral:7b
+  approx_ram_gb: 7
+  tags: [general]
+- name: gemma2:9b
+  approx_ram_gb: 9
+  tags: [general]
+- name: gemma2:27b
+  approx_ram_gb: 27
+  tags: [general]
+- name: qwen2.5:7b
+  approx_ram_gb: 7
+  tags: [general]
+- name: qwen2.5:14b
+  approx_ram_gb: 14
+  tags: [general, code]
+- name: phi3:mini
+  approx_ram_gb: 4
+  tags: [general]
+- name: qwen2.5-coder:7b
+  approx_ram_gb: 7
+  tags: [code]
+- name: deepseek-coder-v2:16b
+  approx_ram_gb: 16
+  tags: [code]
+- name: codellama:7b
+  approx_ram_gb: 7
+  tags: [code]
+- name: codellama:13b
+  approx_ram_gb: 13
+  tags: [code]

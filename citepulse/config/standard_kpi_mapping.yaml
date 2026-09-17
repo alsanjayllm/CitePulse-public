@@ -1,0 +1,44 @@
+# Business KPI Context: maps each CitePulse KPI to the standard business/ops
+# KPIs it most plausibly affects. Sourced from a curated subset of
+# Inputs/oKPIS.xlsx (a generic 67-KPI business/ops catalog spanning
+# Business, Experience, Engineering and Operations, Payments/Acquiring, and
+# Cross-functional categories -- each row there cites its own source, e.g.
+# altexsoft/stripe/lumoa/atlassian/mollie).
+#
+# This is an ILLUSTRATIVE mapping, not a measured statistical correlation --
+# same "don't imply more certainty than the data supports" posture as the
+# rest of CitePulse. It exists to give a business-side reader a bridge from
+# an AEO/GEO metric to the KPI language they already track, not to claim a
+# proven causal link.
+
+"1": # AI Crawl Accessibility
+  - metric: "Technical debt index (score)"
+    source: spacelift
+
+"22": # Citation Rate
+  - metric: "Market share (%)"
+    source: altexsoft
+  - metric: "Lead-to-customer conversion rate (%)"
+    source: stripe
+
+"24": # AI Share of Voice
+  - metric: "Market share (%)"
+    source: altexsoft
+  - metric: "Pipeline value (£)"
+    source: altexsoft
+
+"46": # llms.txt Readiness
+  - metric: "Technical debt index (score)"
+    source: spacelift
+
+"48": # Task Completion Success Rate
+  - metric: "Task success rate (%)"
+    source: lumoa
+  - metric: "Activation rate (%)"
+    source: altexsoft
+
+"58": # Interaction Readiness
+  - metric: "Customer Effort Score, CES (1-7 scale)"
+    source: missiveapp
+  - metric: "Error rate (% of requests)"
+    source: atlassian

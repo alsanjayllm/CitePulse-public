@@ -1,0 +1,35 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+# NOTE: this works unmodified even now that all five v1 KPIs (including
+# #48/#58 Task Readiness) are implemented, because every test is fully
+# mocked -- no real Ollama, no real browser. #22/#24's Ollama calls go
+# through citepulse/ai_engines/ollama.py's plain httpx POST to /api/chat,
+# mocked via respx like search()/crawler tests. #48/#58's Task Readiness
+# harness (citepulse/task_readiness/) is a base dependency now
+# (playwright>=1.47 in pyproject.toml's core `dependencies`, not an
+# extra), but its tests monkeypatch `sync_playwright` at the module level
+# against a hand-rolled fake Page/Browser/Chromium object graph -- the
+# `playwright` Python package just needs to be importable here (it is,
+# via `pip install -e ".[dev]"`), never the actual Chromium binary, which
+# only gets touched inside chromium.launch(), a call the fakes never make.
+# The real install/run path (`citepulse setup` actually downloading
+# Chromium, a real `citepulse audit <url>` driving it against a live
+# site) is validated by the not-yet-built Docker fresh-environment track
+# (docs/DESIGN.md's testing strategy section), not CI.

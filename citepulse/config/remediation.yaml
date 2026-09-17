@@ -1,0 +1,358 @@
+# Layer-1 fact-grounded remediation templates, one per v1 KPI, rendered via
+# str.format_map() against a Finding's raw_data. Missing context renders
+# literally (see citepulse.remediation._SafeDict) rather than being invented
+# -- same "no fabrication" posture as ABAEO's config/backlog_fixes.yaml.
+#
+# A KPI only gets a template rendered when a real gap was detected (see
+# citepulse.remediation.build_finding) -- "zero remediation when perfect"
+# comes from that gate, not from anything in this file.
+#
+# Enhancement spec section 7.6 (narrative discipline): every gap_{band}
+# string below is two sentences joined by a "|||" delimiter -- an
+# interpretation sentence (what the observed number plausibly means for
+# this specific KPI), then a hypothesis sentence (a plausible, KPI-specific
+# mechanism, phrased as a hypothesis to test, not a certainty). Both are
+# still rendered once, at audit-run time, via citepulse.remediation.
+# render_template, and persisted verbatim (with "|||" embedded) on
+# Finding.recommended_fix/description -- reporting.narrative_discipline_view
+# is the only thing that ever splits it back apart, at render time, never
+# re-generating it. The recommendation/action sentence that used to follow
+# the observation directly is folded into the interpretation half (it's
+# still "what to do about it", just relabeled "interpretation" per the
+# spec's four-part split); the hypothesis half is new content, grounded in
+# what that specific KPI actually measures.
+
+"1":
+  # AI Crawl Accessibility -- tiered 0 (every tested AI crawler blocked)
+  # to 3 (best-in-class: no AI crawler blocked and a sitemap.xml is
+  # published). Only tiers 0-2 produce a Finding; tier 3 produces none.
+  tier_0: >-
+    Every tested AI crawler ({blocked_crawlers}) is explicitly disallowed
+    in robots.txt at {robots_txt_url}.|||This likely means answer engines
+    and AI crawlers cannot fetch this site's pages at all, regardless of
+    how good the content itself is -- remove the blanket Disallow rule
+    (or add an explicit "Allow: /" entry) for these user-agents in
+    robots.txt, then re-check whether AI Crawl Accessibility rises off
+    zero.
+  tier_1: >-
+    {blocked_crawlers} is disallowed in robots.txt at {robots_txt_url},
+    while other tested AI crawlers are allowed.|||This selectively blocks
+    some answer engines from citing this site while others can reach it
+    -- if this exclusion isn't deliberate, remove the Disallow rule (or
+    add an explicit "Allow: /" entry) for {blocked_crawlers} and re-check
+    whether every tested AI crawler is allowed.
+  tier_2: >-
+    No AI crawler is blocked in robots.txt at {robots_txt_url}, but no
+    sitemap.xml was found.|||A missing sitemap likely means AI crawlers
+    have to discover this site's pages through link-following alone
+    rather than a direct index -- publish a sitemap.xml listing the
+    site's key pages and re-check whether this moves AI Crawl
+    Accessibility to best-in-class.
+  # Best-in-class (tier 3): no gap, so no Finding is ever created for
+  # this -- see citepulse.kpis.kpi_1's best_in_class branch. Rendered
+  # directly into KPIResult.raw_data["pass_evidence_text"] instead, a
+  # single factual sentence with no interpretation/hypothesis split.
+  tier_3: >-
+    No AI crawler is blocked in robots.txt at {robots_txt_url}, and a
+    sitemap.xml is published, giving AI crawlers both open access and a
+    direct index of this site's key pages.
+
+"46":
+  # llms.txt Readiness -- tiered 0 (absent) to 3 (best-in-class: has both
+  # H2 section headers and at least one Markdown link). Only tiers 0-2
+  # produce a Finding; tier 3 produces none.
+  tier_0: >-
+    No llms.txt file was found (checked {checked_paths}).|||This likely
+    means AI crawlers and answer engines have no single, structured entry
+    point to your site's key pages, and are instead left to infer
+    structure from your HTML navigation alone -- publish a plain-text or
+    Markdown file at /llms.txt listing your site's key pages, starting
+    with a top-level title (H1) and organized under H2 section headers
+    with linked pages underneath each, to test whether that changes
+    citation/crawl behavior.
+  tier_1: >-
+    An llms.txt file exists at {llms_txt_url}, but has neither Markdown
+    section headers (H2) nor linked pages, so it currently reads as plain
+    text rather than a structured index.|||An agent parsing this file
+    can likely tell your site exists but not how its content is grouped
+    or where to click next -- add H2 section headers grouping related
+    pages, with Markdown links ("- [Page Title](url): one-line
+    description") listed under each section, and re-check whether
+    llms.txt Readiness moves to a higher tier.
+  tier_2: >-
+    {llms_txt_url} has {present_feature} but is missing
+    {missing_feature}.|||The missing piece is likely what keeps this file
+    from being a fully navigable index for an AI agent -- add
+    {missing_feature} so an agent can both understand how your pages are
+    grouped and follow direct links to them, then re-check whether this
+    moves llms.txt Readiness to best-in-class.
+  # Best-in-class (tier 3): no gap, so no Finding is ever created for this
+  # -- see citepulse.kpis.kpi_46's best_in_class branch. Rendered directly
+  # into KPIResult.raw_data["pass_evidence_text"] instead, a single
+  # factual sentence with no interpretation/hypothesis split (there's
+  # nothing to fix).
+  tier_3: >-
+    {llms_txt_url} has both section headers and linked pages, giving an AI
+    agent a structured, navigable index of this site's key pages.
+
+"22":
+  # Citation Rate -- percent-banded (0-100). Only bands below
+  # best_in_class produce a Finding; a confirmed 0% still requires the
+  # site to have been genuinely testable (confirmed_count > 0) -- a
+  # totally unmeasurable site never reaches this file at all.
+  gap_critical: >-
+    {domain} was not cited in any of {confirmed_count} tested AI answers
+    (for example, when asked "{example_query}").|||This likely means a
+    RAG-style answer engine could not find clear, structured, factual
+    content about {domain} to retrieve and quote for these specific
+    queries -- publish an FAQ page, comparison content, or a
+    well-structured llms.txt that answers them directly, confirm your
+    site is indexable by the search engines these answer engines draw
+    from, and re-run this audit to test whether citation rate moves off
+    zero.
+  gap_needs_improvement: >-
+    {domain} was cited in only {cited_count} of {confirmed_count} tested
+    AI answers ({citation_rate_percent}%) -- for example, it was not
+    cited when asked "{example_query}".|||The gap between cited and
+    uncited queries likely traces to uneven topical coverage: some
+    questions have a clear, quotable source on {domain} and others don't
+    -- publish more specific, quotable content (structured FAQs,
+    data-backed claims, clearly named entities) around the uncited
+    questions, and re-test to confirm citation rate rises for that
+    segment.
+  gap_good: >-
+    {domain} was cited in {cited_count} of {confirmed_count} tested AI
+    answers ({citation_rate_percent}%) -- close to best-in-class, but not
+    yet cited for every tested query (e.g. "{example_query}").|||The
+    remaining uncited queries likely point to a small number of specific
+    content gaps rather than a systemic problem -- continue building out
+    authoritative, structured content for those queries and re-test to
+    confirm the gap closes.
+  # Best-in-class: no gap, no Finding (see kpi_22.py's best_in_class
+  # branch). Rendered into raw_data["pass_evidence_text"] instead -- one
+  # factual sentence, no interpretation/hypothesis split.
+  pass_evidence: >-
+    {domain} was cited in {cited_count} of {confirmed_count} tested AI
+    answers ({citation_rate_percent}%), including "{example_query}".
+
+"24":
+  # AI Share of Voice -- position/frequency-weighted score (0-100) across
+  # the site and the competitor domains that showed up in the same
+  # searches. Only bands below best_in_class produce a Finding; the "no
+  # tracked domain ever mentioned" case is unmeasurable and never reaches
+  # this file at all.
+  gap_critical: >-
+    {domain} had 0% share of voice across {confirmed_count} tested AI
+    answers (for example, when asked "{example_query}") -- {top_competitor}
+    was cited instead.|||This likely means {top_competitor} currently has
+    clearer, more directly quotable content for these queries than
+    {domain} does, not necessarily that {domain}'s offering is weaker --
+    publish clear, structured, factual content that directly answers the
+    questions {top_competitor} is already being cited for, confirm your
+    site is indexable by the search engines these answer engines draw
+    from, and re-test to see whether share of voice moves off zero.
+  gap_needs_improvement: >-
+    {domain} captured only {share_percent}% share of voice across
+    {confirmed_count} tested AI answers -- {top_competitor} is currently
+    getting a larger share (e.g. when asked "{example_query}").|||The
+    imbalance likely reflects {top_competitor} having more specific,
+    quotable content for the queries where it wins -- strengthen topical
+    authority with more specific, quotable content (structured FAQs,
+    data-backed claims, clearly named entities) for those same queries,
+    and re-test to confirm the gap with {top_competitor} narrows.
+  gap_good: >-
+    {domain} captured {share_percent}% share of voice across
+    {confirmed_count} tested AI answers -- close to best-in-class, but
+    {top_competitor} still edges it out on some tested queries (e.g.
+    "{example_query}").|||The remaining edge {top_competitor} holds is
+    likely limited to a handful of specific queries rather than a broad
+    authority gap -- continue building authoritative, structured content
+    for those queries and re-test to confirm the remaining gap closes.
+  # Best-in-class: no gap, no Finding (see kpi_24.py's best_in_class
+  # branch). Rendered into raw_data["pass_evidence_text"] instead -- one
+  # factual sentence, no interpretation/hypothesis split.
+  pass_evidence: >-
+    {domain} captured {share_percent}% share of voice across
+    {confirmed_count} tested AI answers, ahead of every tracked competitor.
+
+"48":
+  # Task Completion Success Rate -- percent of attempted per-site
+  # LLM-generated tasks (find pricing, submit a contact form, etc.) an
+  # autonomous AI agent actually completed, independently verified
+  # against each task's own success criteria (never the agent's own
+  # self-report). Only bands below best_in_class produce a Finding.
+  gap_critical: >-
+    An autonomous AI agent failed to complete any of {runs_made} attempted
+    tasks on this site ({successes} succeeded, {success_rate_percent}%) --
+    for example, "{example_task_name}" failed ({example_failure_cause}).
+    |||This likely means an autonomous agent cannot yet reliably navigate
+    key user journeys on this site at all -- make journeys like finding
+    pricing, contacting you, or using search reachable through clearly
+    labeled, clickable/fillable elements rather than JavaScript-only
+    interactions, confirm the pages an agent would land on actually
+    contain the content it's looking for, and re-run task readiness to
+    test whether completion rate rises off zero.
+  gap_needs_improvement: >-
+    An autonomous AI agent completed only {successes} of {runs_made}
+    attempted tasks on this site ({success_rate_percent}%) -- for example,
+    "{example_task_name}" failed ({example_failure_cause}).|||The failing
+    task likely has a specific, fixable obstacle (an unclear label, a
+    JavaScript-only control, or a landing page missing the expected
+    content) rather than a site-wide navigation problem -- review the
+    failing task's journey for that obstacle and re-run task readiness to
+    confirm it clears.
+  gap_good: >-
+    An autonomous AI agent completed {successes} of {runs_made}
+    attempted tasks on this site ({success_rate_percent}%) -- close to
+    best-in-class, but "{example_task_name}" still failed
+    ({example_failure_cause}).|||This is likely one last, narrow
+    obstacle in an otherwise agent-navigable journey -- continue
+    simplifying the remaining task's journey and re-run task readiness to
+    confirm the gap closes.
+  # Best-in-class: no gap, no Finding (see kpi_48.py's best_in_class
+  # branch). Rendered into raw_data["pass_evidence_text"] instead -- one
+  # factual sentence, no interpretation/hypothesis split.
+  pass_evidence: >-
+    An autonomous AI agent completed {successes} of {runs_made} attempted
+    tasks on this site ({success_rate_percent}%), including
+    "{example_task_name}".
+
+"58":
+  # Interaction Readiness -- share of individual click/fill/navigate
+  # actions an autonomous AI agent attempted (across the same task runs
+  # #48 measures) that succeeded, rather than a whole task passing or
+  # failing. Only bands below best_in_class produce a Finding.
+  gap_critical: >-
+    {total_interaction_failures} of {total_attempted_actions} individual
+    actions an autonomous AI agent attempted on this site failed
+    ({interaction_success_rate_percent}% succeeded) -- for example, on
+    "{example_task_name}" ({example_failure_detail}).|||A failure rate
+    this high across individual actions (not whole tasks) likely points
+    to a structural issue with how interactive elements are built --
+    unstable selectors, missing labels, or JavaScript-only controls --
+    rather than one-off page content gaps: check that buttons, links, and
+    form fields have stable selectors/labels and are reachable without
+    JavaScript timing issues that could trip up an automated agent, then
+    re-test to confirm the action failure rate drops.
+  gap_needs_improvement: >-
+    {total_interaction_failures} of {total_attempted_actions} individual
+    actions an autonomous AI agent attempted on this site failed
+    ({interaction_success_rate_percent}% succeeded) -- for example, on
+    "{example_task_name}" ({example_failure_detail}).|||The failing
+    actions likely share a common cause -- an unstable selector, a
+    slow-loading element, or unexpected page behavior on that specific
+    interaction -- review the failing interactions for that pattern and
+    re-test to confirm the failure rate drops.
+  gap_good: >-
+    {total_interaction_failures} of {total_attempted_actions} individual
+    actions an autonomous AI agent attempted on this site failed
+    ({interaction_success_rate_percent}% succeeded) -- close to
+    best-in-class, e.g. on "{example_task_name}"
+    ({example_failure_detail}).|||This is likely a small number of rough
+    edges in otherwise reliable interactive elements -- continue
+    polishing the remaining interactions and re-test to confirm the
+    action failure rate reaches best-in-class.
+  gap_critical_zero_attempted: >-
+    Every site-attributable task run failed before an autonomous AI
+    agent could attempt a single click/fill/navigate action -- for
+    example, "{example_task_name}" ({example_failure_detail}).|||This
+    points to a navigation-level blocker (page load failure, redirect
+    loop, or unreachable route) rather than a problem with individual
+    interactive elements -- fix whatever is preventing the page from
+    loading/navigating at all, then re-run task readiness to see
+    whether individual actions succeed.
+  # Best-in-class: no gap, no Finding (see kpi_58.py's best_in_class
+  # branch). Rendered into raw_data["pass_evidence_text"] instead -- one
+  # factual sentence, no interpretation/hypothesis split.
+  pass_evidence: >-
+    {total_attempted_actions} individual actions were attempted by an
+    autonomous AI agent on this site, with only
+    {total_interaction_failures} failing
+    ({interaction_success_rate_percent}% succeeded).
+
+"45":
+  # Citation Correctness Rate -- of the site's citations an agent could
+  # actually judge (page fetched + entailment resolved), the share whose
+  # claim the cited page supports. Only bands below best_in_class produce
+  # a Finding; "nothing was judged" (no fetchable/classifiable citation) is
+  # unmeasurable and never reaches this file at all.
+  gap_critical: >-
+    {contradicted} of {judged} judgeable citations about {domain} did not
+    hold up ({correctness_rate_percent}% were correct) -- e.g. the claim
+    "{example_claim}" citing {example_url} was contradicted by that page.
+    |||This likely means pages that get cited for {domain} do not actually
+    answer -- or contradict -- the claims an answer engine makes about
+    them; align the specific content of cited pages with the claims they
+    are cited for, remove or redirect content that contradicts the site's
+    own positions, and re-test to confirm correctness rate rises.
+  gap_needs_improvement: >-
+    {contradicted} of {judged} judgeable citations about {domain} did not
+    hold up ({correctness_rate_percent}% were correct) -- e.g. the claim
+    "{example_claim}" citing {example_url} was contradicted by that page.
+    |||The incorrect citations likely cluster around specific pages whose
+    content does not match what answer engines claim about them; review
+    those cited pages for gaps or contradictions versus the claims they
+    attract and re-test to confirm the rate improves.
+  gap_good: >-
+    {supported} of {judged} judgeable citations about {domain} were correct
+    ({correctness_rate_percent}%) -- close to best-in-class, but a few
+    cites still did not hold up (e.g. "{example_claim}" citing
+    {example_url}).|||The remaining incorrect citations are likely narrow
+    content mismatches on a small set of pages rather than a systemic
+    problem -- continue aligning cited pages with the claims they attract
+    and re-test to confirm the gap closes.
+  # Best-in-class: no gap, no Finding (see kpi_45.py's best_in_class
+  # branch). Rendered into raw_data["pass_evidence_text"] instead -- one
+  # factual sentence, no interpretation/hypothesis split.
+  pass_evidence: >-
+    {supported} of {judged} judgeable citations of {domain} were supported
+    by the cited page's own content ({correctness_rate_percent}%).
+
+"62":
+  # AI Share of Voice (Weighted) -- the SRS FR-5 literal weighted composite
+  # (0/1 mention, +1 recommend, +1 cite, +0.5 citation-correct, weighted by
+  # prompt importance) across all tracked entities. Only bands below
+  # best_in_class produce a Finding; the "no tracked entity ever mentioned"
+  # case is unmeasurable and never reaches this file at all.
+  gap_critical: >-
+    {domain} held 0% weighted share of voice across {judged_count} tested
+    answers ({top_competitor} led instead).|||This likely means {domain}
+    is not mentioned, recommended, or correctly cited by answer engines
+    for these queries at all, while {top_competitor} is -- publish clear,
+    quotable, and factually consistent content that answer engines both
+    retrieve and can cite without contradiction, and re-test to see whether
+    weighted share moves off zero.
+  gap_needs_improvement: >-
+    {domain} captured {share_percent}% weighted share of voice across
+    {judged_count} tested answers -- {top_competitor} is currently winning
+    a larger weighted share.|||The gap likely reflects {top_competitor}
+    being more consistently mentioned, recommended, and correctly cited
+    for these queries -- strengthen quotable, self-consistent topical
+    content for the queries where it leads and re-test to confirm {domain}'s
+    weighted share narrows the gap.
+  gap_good: >-
+    {domain} captured {share_percent}% weighted share of voice across
+    {judged_count} tested answers -- close to best-in-class, but
+    {top_competitor} still edges it out on some tested queries.|||The
+    remaining edge {top_competitor} holds is likely limited to a few
+    queries or a citation-correctness shortfall on {domain}'s side --
+    continue building authoritative, self-consistent content for those
+    queries and re-test to confirm the gap closes.
+  # Best-in-class: no gap, no Finding (see kpi_62.py's best_in_class
+  # branch). Rendered into raw_data["pass_evidence_text"] instead -- one
+  # factual sentence, no interpretation/hypothesis split.
+  pass_evidence: >-
+    {domain} captured {share_percent}% weighted share of voice across
+    {judged_count} tested answers, ahead of every tracked competitor.
+
+# Whole-report Limitations section (Phase 6 / FR-9.5). Not per-KPI -- a
+# single static template rendered once per report, against report-level
+# evidence composed by reporting.render_limitations_section(). Which caveats
+# actually apply is decided by the caller from real data (e.g. a list of
+# KPIs that were too under-sampled to band), never invented here; missing
+# keys render literally via _SafeDict rather than fabricating a number.
+"__limitations__":
+  markdown: >-
+    ## Limitations
+
+    {limitations_body}
