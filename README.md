@@ -50,6 +50,41 @@ is the opposite on both counts:
   (find pricing, fill a form). Almost no other tool, free or paid, tests
   this today.
 
+## How CitePulse compares
+
+A feature-level comparison against three well-known AEO/GEO visibility
+tools (Profound, Otterly.ai, and Peec AI — all cloud SaaS, priced per
+seat/query). This is CitePulse's own characterization based on each
+tool's public marketing/docs as of this writing; pricing and features
+change, so verify anything decision-critical against the vendor's own
+site before relying on it.
+
+| | **CitePulse** | Profound | Otterly.ai | Peec AI |
+|---|---|---|---|---|
+| Runs locally / self-hosted | ✅ (local Ollama, no account) | ❌ cloud SaaS | ❌ cloud SaaS | ❌ cloud SaaS |
+| Your prompts/brand data leaves your machine | Never (by default) | Yes | Yes | Yes |
+| Recurring cost | $0 (bring-your-own optional cloud key) | Paid, per-seat/usage | Paid, per-seat/usage | Paid, per-seat/usage |
+| Open source / auditable | ✅ MIT | ❌ | ❌ | ❌ |
+| Citation rate / AI Share of Voice tracking | ✅ | ✅ | ✅ | ✅ |
+| Competitor tracking | ✅ (manual + auto-discovery) | ✅ | ✅ | ✅ |
+| llms.txt readiness check | ✅ | ❌ (not a published feature) | ❌ (not a published feature) | ❌ (not a published feature) |
+| AI-crawler accessibility (robots.txt vs. GPTBot/ClaudeBot/etc.) | ✅ | ❌ (not a published feature) | ❌ (not a published feature) | ❌ (not a published feature) |
+| **AI-agent task-completion testing** (can an agent actually fill a form / find pricing on your site) | ✅ (Playwright-driven, independently verified) | ❌ | ❌ | ❌ |
+| Multi-model / cross-engine comparison in one run | ✅ (3-way Ollama/OpenRouter compare, consolidated view) | Partial (tracks multiple AI engines' answers, not a live compare-run) | Partial (tracks multiple AI engines' answers, not a live compare-run) | Partial (tracks multiple AI engines' answers, not a live compare-run) |
+| Confidence intervals / statistical rigor on reported rates | ✅ (Wilson score CIs, sample-size gating) | Not publicly documented | Not publicly documented | Not publicly documented |
+| Before/after run regression comparison | ✅ | ✅ (dashboards over time) | ✅ (dashboards over time) | ✅ (dashboards over time) |
+| No-admin, portable Windows build | ✅ (`citepulse.exe`, zip-and-run) | N/A (SaaS) | N/A (SaaS) | N/A (SaaS) |
+
+The short version: the cloud tools are more polished for ongoing
+brand-monitoring dashboards across many real commercial AI engines
+(ChatGPT, Perplexity, Google AI Overviews) simultaneously — CitePulse
+measures against whatever model you point it at (local or cloud), not a
+live panel of those products. What CitePulse adds that we haven't seen
+published elsewhere: llms.txt/AI-crawler accessibility checks, and
+actual AI-agent task-completion testing — not just "are you mentioned,"
+but "can an agent actually use your site" — plus zero recurring cost and
+nothing about your site or prompts ever leaving your machine.
+
 ## System requirements
 
 - Python 3.11+
