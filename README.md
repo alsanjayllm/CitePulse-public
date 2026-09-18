@@ -170,6 +170,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 See [SECURITY.md](SECURITY.md) for what's in scope and how to report a
 concern.
 
+## Releases
+
+See [RELEASING.md](RELEASING.md) for how versions are cut and published.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
