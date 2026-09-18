@@ -74,7 +74,11 @@ from urllib.parse import urlparse
 from uuid import UUID
 
 from citepulse.ai_engines.provider import ask_with_retry
-from citepulse.company_profile import is_real_profile
+from citepulse.company_profile import (
+    infer_brand_name_from_profile,
+    is_plausible_brand_name,
+    is_real_profile,
+)
 from citepulse.crawler.homepage import fetch_homepage_meta
 from citepulse.crawler.search import search
 from citepulse.models import PromptItem
@@ -146,93 +150,11 @@ _ENGLISH_STOPWORDS = {
 _SHORT_PHRASE_WORD_LIMIT = 6
 _TOPIC_MAX_LEN = 120
 
-# A candidate brand name shorter than this, or matching an ISO 639-1
-# language code, is almost never a real brand -- it's far more likely a
-# language-interstitial page's title (e.g. a bare "EN"/"NL"/"DE"), which
-# _infer_brand_name below must reject rather than accept verbatim.
-_MIN_BRAND_NAME_LEN = 3
-_ISO_639_1_CODES = frozenset(
-    """
-    aa ab ae af ak am an ar as av ay az
-    ba be bg bh bi bm bn bo br bs
-    ca ce ch co cr cs cu cv cy
-    da de dv dz
-    ee el en eo es et eu
-    fa ff fi fj fo fr fy
-    ga gd gl gn gu gv
-    ha he hi ho hr ht hu hy hz
-    ia id ie ig ii ik io is it iu
-    ja jv
-    ka kg ki kj kk kl km kn ko kr ks ku kv kw ky
-    la lb lg li ln lo lt lu lv
-    mg mh mi mk ml mn mr ms mt my
-    na nb nd ne ng nl nn no nr nv ny
-    oc oj om or os
-    pa pi pl ps pt
-    qu
-    rm rn ro ru rw
-    sa sc sd se sg si sk sl sm sn so sq sr ss st su sv sw
-    ta te tg th ti tk tl tn to tr ts tt tw ty
-    ug uk ur uz
-    ve vi vo
-    wa wo
-    xh
-    yi yo
-    za zh zu
-    """.split()
-)
-
-
-def _is_plausible_brand_name(candidate: str) -> bool:
-    stripped = candidate.strip()
-    if len(stripped) < _MIN_BRAND_NAME_LEN:
-        return False
-    return stripped.lower() not in _ISO_639_1_CODES
-
-
-# company_profile is a 1-2 sentence LLM summary of "what this company
-# sells and who its customer is" (citepulse.company_profile's own system
-# prompt) -- it's never guaranteed to open with the brand name itself, so
-# a plain first-word extraction would just trade one fragile source (a
-# homepage <title>) for another: a profile like "This company provides
-# banking and insurance..." would otherwise yield "This" as brand_name,
-# corrupting every probe exactly like the original bug, just via a
-# different source. Reject the common generic sentence-openers a
-# brand-less profile is likely to start with, and require the candidate
-# to look like a proper noun (capitalized) -- a real brand name almost
-# always is, and a genuine profile that fails this (e.g. one deliberately
-# starting with a lowercase word) simply falls through to the
-# title/domain steps of the chain instead of risking a wrong guess.
-_GENERIC_PROFILE_LEADING_WORDS = {
-    "a",
-    "an",
-    "the",
-    "this",
-    "that",
-    "these",
-    "those",
-    "it",
-    "its",
-    "they",
-    "we",
-    "our",
-    "company",
-    "business",
-    "brand",
-    "site",
-    "website",
-    "provider",
-    "platform",
-}
-
-
-def _looks_like_company_profile_brand_name(candidate: str) -> bool:
-    stripped = candidate.strip()
-    if not _is_plausible_brand_name(stripped):
-        return False
-    if stripped.lower() in _GENERIC_PROFILE_LEADING_WORDS:
-        return False
-    return stripped[0].isupper()
+# Brand-name plausibility (length floor + ISO-639-1 language-code
+# rejection, for the language-interstitial-title false positive e.g. a
+# bare "EN"/"NL"/"DE") now lives in citepulse.company_profile as
+# is_plausible_brand_name, shared with task_readiness/task_generator.py's
+# identical need -- imported above rather than duplicated here.
 
 
 # Abbreviations whose trailing "." must not be treated as a sentence
@@ -355,7 +277,7 @@ def _competitor_mentions(
     the company, not its URL -- so domain-only matching structurally
     never fires. `names` maps domain -> competitor name (from
     Competitor.name); a domain with no entry, or whose name is too short/
-    implausible (see _is_plausible_brand_name -- avoids false positives
+    implausible (see is_plausible_brand_name -- avoids false positives
     on a short/generic competitor name), falls back to domain-only
     matching for that entry, same as before. `count` is the sum of domain
     and name occurrences, MINUS any name match that overlaps a domain
@@ -374,7 +296,7 @@ def _competitor_mentions(
         domain_spans = [m.span() for m in domain_pattern.finditer(lower_text)]
         positions = [start for start, _ in domain_spans]
         name = names.get(domain)
-        if name and _is_plausible_brand_name(name):
+        if name and is_plausible_brand_name(name):
             name_pattern = re.compile(
                 rf"(?<![a-z0-9]){re.escape(name.lower())}(?![a-z0-9])"
             )
@@ -486,30 +408,33 @@ def _infer_topic(
 def _infer_brand_name(
     homepage: dict, domain: str, company_profile: str | None = None
 ) -> str:
-    # Same "title, split on the separators a homepage <title> commonly
-    # uses" derivation as task_readiness/task_generator.py's brand_name --
-    # duplicated rather than imported since that module also pulls in the
-    # whole task-generation prompt-building machinery, well outside what
-    # this evidence-gathering module needs.
+    # Brand-name derivation from company_profile now lives in
+    # citepulse.company_profile.infer_brand_name_from_profile, shared with
+    # task_readiness/task_generator.py's identical need (that module still
+    # carries its own copy of this fallback chain rather than importing
+    # this whole evidence-gathering module, which pulls in the RAG-probe
+    # machinery it doesn't need -- but both now call the same shared
+    # extraction helper instead of independently truncating to the first
+    # whitespace token, which is what previously turned "Hugging Face
+    # provides..." into brand_name "Hugging").
     #
     # A homepage <title> is a fragile source: a site can land CitePulse's
     # fetcher on a language-interstitial page (a bare "EN"/"NL" title --
     # confirmed live on northfieldbank.example) that used to be accepted verbatim,
     # mechanically corrupting every citation-rate/share-of-voice probe
     # with the wrong brand name. Mirrors _infer_topic's fallback chain
-    # shape: prefer the human-reviewed, stable `Site.company_profile`
-    # (its leading word is almost always the company's own name, e.g.
-    # "Northfield is a Belgian bank...") when real, then a plausibility-gated
-    # title, then the domain -- never accepting a too-short or
-    # ISO-639-1-language-code candidate at any step.
+    # shape: prefer the human-reviewed, stable `Site.company_profile` when
+    # real, then a plausibility-gated title, then the domain -- never
+    # accepting a too-short or ISO-639-1-language-code candidate at any
+    # step.
     if is_real_profile(company_profile):
-        first_word = company_profile.strip().split(" ", 1)[0].strip(".,;:!?\"'()")
-        if _looks_like_company_profile_brand_name(first_word):
-            return first_word
+        brand = infer_brand_name_from_profile(company_profile)
+        if brand:
+            return brand
     title = homepage.get("title") if homepage.get("available") else None
     if title:
         brand = title.split(" - ")[0].split(" | ")[0].strip()
-        if _is_plausible_brand_name(brand):
+        if is_plausible_brand_name(brand):
             return brand
     return domain.split(".")[0] if domain else "the site"
 

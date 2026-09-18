@@ -659,6 +659,32 @@ def test_brand_name_rejects_generic_profile_opener(monkeypatch):
 
 
 @respx.mock
+def test_brand_name_extracts_multi_word_brand_from_company_profile(monkeypatch):
+    """Regression for a real huggingface.co audit: company_profile "Hugging
+    Face provides a platform for hosting..." used to yield brand_name
+    "Hugging" (a naive first-whitespace-token split), so every generated
+    task-authoring prompt referred to a company that isn't Hugging Face.
+    brand_name must now capture the full multi-word subject."""
+    _mock_homepage_ok()  # <title>Example Co</title>
+    prompts = []
+    monkeypatch.setattr(
+        task_generator_module, "ask_with_retry", _capture_context_prompt_fake(prompts)
+    )
+
+    generate_task_dicts_for_site(
+        _SITE_URL,
+        timeout=5.0,
+        company_profile=(
+            "Hugging Face provides a platform for hosting, collaborating, "
+            "and building artificial intelligence models and applications."
+        ),
+    )
+
+    assert "Brand: Hugging Face" in prompts[0]
+    assert "Brand: Hugging\n" not in prompts[0]
+
+
+@respx.mock
 def test_tasks_prompt_is_grounded_in_real_observed_nav_links(monkeypatch):
     """The tasks-authoring call (prompts[1]) must see real, observed
     nav-link paths -- not just the context call -- and be told to prefer

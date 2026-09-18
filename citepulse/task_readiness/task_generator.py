@@ -57,6 +57,8 @@ from dataclasses import dataclass, field
 import yaml
 
 from citepulse.ai_engines.provider import ask_with_retry
+from citepulse.company_profile import infer_brand_name_from_profile
+from citepulse.company_profile import is_plausible_brand_name
 from citepulse.company_profile import is_real_profile as _has_real_profile
 from citepulse.crawler.homepage import fetch_homepage_meta
 from citepulse.retry import call_with_retry_meta, fold_retry_meta
@@ -101,95 +103,14 @@ _VALID_INTENT_STAGES = ("awareness", "consideration", "decision")
 _RESPONSE_RETRY_ATTEMPTS = 1
 _LOGGED_RAW_TEXT_CHARS = 500
 
-# A candidate brand name shorter than this, or matching an ISO 639-1
-# language code, is almost never a real brand -- it's far more likely a
-# language-interstitial page's title (e.g. a bare "EN"/"NL"/"DE"), which
-# generate_task_dicts_for_site's brand_name derivation below must reject
-# rather than accept verbatim. Mirrors citepulse.ai_engines.citation_rate's
-# identical constants/helper -- duplicated rather than imported per this
-# module's own docstring note on brand_name (a second, independent-but-
-# identical derivation, not a shared import, since citation_rate.py pulls
-# in the whole RAG-probe corpus machinery this module doesn't need).
-_MIN_BRAND_NAME_LEN = 3
-_ISO_639_1_CODES = frozenset(
-    """
-    aa ab ae af ak am an ar as av ay az
-    ba be bg bh bi bm bn bo br bs
-    ca ce ch co cr cs cu cv cy
-    da de dv dz
-    ee el en eo es et eu
-    fa ff fi fj fo fr fy
-    ga gd gl gn gu gv
-    ha he hi ho hr ht hu hy hz
-    ia id ie ig ii ik io is it iu
-    ja jv
-    ka kg ki kj kk kl km kn ko kr ks ku kv kw ky
-    la lb lg li ln lo lt lu lv
-    mg mh mi mk ml mn mr ms mt my
-    na nb nd ne ng nl nn no nr nv ny
-    oc oj om or os
-    pa pi pl ps pt
-    qu
-    rm rn ro ru rw
-    sa sc sd se sg si sk sl sm sn so sq sr ss st su sv sw
-    ta te tg th ti tk tl tn to tr ts tt tw ty
-    ug uk ur uz
-    ve vi vo
-    wa wo
-    xh
-    yi yo
-    za zh zu
-    """.split()
-)
-
-
-def _is_plausible_brand_name(candidate: str) -> bool:
-    stripped = candidate.strip()
-    if len(stripped) < _MIN_BRAND_NAME_LEN:
-        return False
-    return stripped.lower() not in _ISO_639_1_CODES
-
-
-# company_profile is a 1-2 sentence LLM summary of "what this company
-# sells and who its customer is" (citepulse.company_profile's own system
-# prompt) -- it's never guaranteed to open with the brand name itself, so
-# a plain first-word extraction would just trade one fragile source (a
-# homepage <title>) for another: a profile like "This company provides
-# banking and insurance..." would otherwise yield "This" as brand_name.
-# Reject the common generic sentence-openers a brand-less profile is
-# likely to start with, and require the candidate to look like a proper
-# noun (capitalized) -- mirrors citepulse.ai_engines.citation_rate's
-# identical helper.
-_GENERIC_PROFILE_LEADING_WORDS = {
-    "a",
-    "an",
-    "the",
-    "this",
-    "that",
-    "these",
-    "those",
-    "it",
-    "its",
-    "they",
-    "we",
-    "our",
-    "company",
-    "business",
-    "brand",
-    "site",
-    "website",
-    "provider",
-    "platform",
-}
-
-
-def _looks_like_company_profile_brand_name(candidate: str) -> bool:
-    stripped = candidate.strip()
-    if not _is_plausible_brand_name(stripped):
-        return False
-    if stripped.lower() in _GENERIC_PROFILE_LEADING_WORDS:
-        return False
-    return stripped[0].isupper()
+# Brand-name derivation from company_profile (subject-of-first-sentence
+# extraction, plausibility/ISO-639-1-language-code gating) now lives in
+# citepulse.company_profile as infer_brand_name_from_profile/
+# is_plausible_brand_name, shared with citepulse.ai_engines.citation_rate's
+# identical need -- imported above rather than duplicated here. The two
+# modules still each keep their own title/domain fallback chain below
+# (this module deliberately doesn't import citation_rate.py itself, which
+# pulls in the whole RAG-probe corpus machinery this module doesn't need).
 
 
 @dataclass
@@ -728,14 +649,12 @@ def generate_task_dicts_for_site(
     homepage = fetch_homepage_meta(site_url)
     brand_name = None
     if _has_real_profile(company_profile):
-        first_word = company_profile.strip().split(" ", 1)[0].strip(".,;:!?\"'()")
-        if _looks_like_company_profile_brand_name(first_word):
-            brand_name = first_word
+        brand_name = infer_brand_name_from_profile(company_profile)
     if brand_name is None:
         title_brand = (
             (homepage.get("title") or "").split(" - ")[0].split(" | ")[0].strip()
         )
-        if _is_plausible_brand_name(title_brand):
+        if is_plausible_brand_name(title_brand):
             brand_name = title_brand
     if brand_name is None:
         brand_name = site_url

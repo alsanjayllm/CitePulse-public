@@ -758,6 +758,49 @@ def test_brand_name_rejects_short_language_code_variants(monkeypatch, code):
 
 
 @respx.mock
+def test_brand_name_extracts_multi_word_brand_from_company_profile(monkeypatch):
+    """Regression for a real huggingface.co audit: company_profile "Hugging
+    Face provides a platform for hosting..." used to yield brand_name
+    "Hugging" (a naive first-whitespace-token split), corrupting every
+    generated citation-test prompt with a company that isn't Hugging Face.
+    brand_name must now capture the full multi-word subject."""
+    _mock_homepage_ok(description="a generic example product", title="Example")
+    _patch_search(monkeypatch, [_SOME_RESULTS])
+    _mock_ollama("According to example.com, this is great.")
+
+    evidence = check_citation_rate(
+        _SITE_URL,
+        num_prompts=1,
+        company_profile=(
+            "Hugging Face provides a platform for hosting, collaborating, "
+            "and building artificial intelligence models and applications."
+        ),
+    )
+
+    assert evidence["brand_name"] == "Hugging Face"
+    assert evidence["brand_name"] != "Hugging"
+
+
+@respx.mock
+def test_brand_name_extracts_three_word_brand_from_company_profile(monkeypatch):
+    """A second multi-word case, with a different opener verb ("offers"
+    rather than "provides") and three words rather than two."""
+    _mock_homepage_ok(description="a generic example product", title="Example")
+    _patch_search(monkeypatch, [_SOME_RESULTS])
+    _mock_ollama("According to example.com, this is great.")
+
+    evidence = check_citation_rate(
+        _SITE_URL,
+        num_prompts=1,
+        company_profile=(
+            "BNP Paribas Fortis offers retail and business banking services."
+        ),
+    )
+
+    assert evidence["brand_name"] == "BNP Paribas Fortis"
+
+
+@respx.mock
 def test_extra_metrics_disabled_skips_all_four_metrics(monkeypatch):
     """settings.citation_rate_extra_metrics_enabled=False (or
     extra_metrics=False directly) must skip mention_rate/
