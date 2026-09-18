@@ -48,7 +48,7 @@ from citepulse.sites import (
 )
 @click.pass_context
 def cli(ctx: click.Context, log_level: str | None):
-    """CitePulse — local-first, open-source AEO audit tool."""
+    """CitePulse - local-first, open-source AEO audit tool."""
     configure_logging(level=log_level)
     # Stashed for ui() below: that command launches Streamlit in a
     # separate process (subprocess.run), which never inherits this
@@ -391,7 +391,7 @@ def audit(
 
 @cli.group()
 def sites():
-    """Manage the ≤10 sites tracked by CitePulse."""
+    """Manage the up to 10 sites tracked by CitePulse."""
 
 
 @sites.command("list")
