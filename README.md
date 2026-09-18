@@ -81,11 +81,46 @@ they're pulled straight from this repo.
 
 ## System requirements
 
-- Python 3.11+
-- 8GB RAM minimum, 16GB recommended (for running a local LLM comfortably)
-- ~5-10GB free disk (model weights + browser download)
-- No GPU required — CPU-only works, just slower. An NVIDIA/Apple/AMD GPU is
-  used automatically by Ollama if present.
+- Python 3.11+ (not needed for the portable Windows build below)
+- **RAM** — CitePulse itself is light; what matters is the local Ollama
+  model you pick, since Ollama sizes a model against *total* RAM, not just
+  what's free. `citepulse`'s model picker won't suggest a model that
+  doesn't fit your machine (`citepulse/model_recommender.py`, 0.8× safety
+  margin). Rough guide for the default `llama3.1:8b` and other catalog
+  models (`citepulse/config/model_catalog.yaml`):
+  | Total RAM | What fits | Example models |
+  |---|---|---|
+  | 8GB | Small models only, tight | `phi3:mini` (4GB) |
+  | 16GB (recommended) | The default, comfortably | `llama3.1:8b` (8GB), `mistral:7b`, `qwen2.5:7b` |
+  | 32GB | Mid-size models | `qwen2.5:14b` (14GB), `deepseek-coder-v2:16b` |
+  | 64GB+ | Large models | `llama3.1:70b` (48GB), `gemma2:27b` |
+- **Disk** — ~5-10GB free (model weights + browser download for the
+  headless-browser KPIs). Each additional Ollama model you pull adds its
+  own size on top (see table above).
+- **GPU — optional, not required.** CPU-only works, just slower per audit
+  run. If you have an NVIDIA (CUDA), Apple Silicon (Metal), or recent AMD
+  (ROCm) GPU, Ollama detects and uses it automatically — nothing to
+  configure in CitePulse itself. VRAM matters more than RAM in that case:
+  a GPU with less VRAM than a model's `approx_ram_gb` figure above will
+  partially offload to CPU/RAM rather than fail, just slower than a full
+  GPU fit.
+- **Virtual memory / swap** — not required if your RAM comfortably fits
+  the model you're running (see table above). If you're running close to
+  the edge — e.g. an 8GB-RAM machine with `llama3.1:8b` — a larger
+  Windows pagefile or Linux/macOS swap acts as a safety net against an
+  out-of-memory failure rather than a performance feature; expect it to
+  slow the run down heavily if it's actually being used for model weights.
+
+**Checking your own specs:**
+
+| | RAM | GPU / VRAM | Virtual memory / swap |
+|---|---|---|---|
+| Windows | Task Manager → Performance → Memory | Task Manager → Performance → GPU (or `dxdiag` → Display tab) | Search "Advanced system settings" → Performance Settings → Advanced → Virtual memory |
+| macOS | Apple menu → About This Mac → Memory | About This Mac → More Info → Graphics; `system_profiler SPDisplaysDataType` in Terminal | `sysctl vm.swapusage` in Terminal |
+| Linux | `free -h` | `lspci \| grep -i vga` (or `nvidia-smi` for NVIDIA) | `swapon --show` or `free -h` |
+
+Ollama itself also reports what it detected — after `ollama serve` is
+running, `ollama ps` shows whether a loaded model landed on GPU or CPU.
 
 ## Quick start
 
