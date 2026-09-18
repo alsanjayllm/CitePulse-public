@@ -2,6 +2,7 @@
 name = "citepulse"
 version = "1.6.2"
 description = "Local-first, open-source AEO audit tool: is your site cited by AI, and can an AI agent actually use it?"
+authors = [{name = "alsanjayllm"}]
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.1",
@@ -30,6 +31,11 @@ build = [
 ui = [
     "streamlit>=1.44",
 ]
+
+[project.urls]
+Homepage = "https://github.com/alsanjayllm/CitePulse-public"
+Repository = "https://github.com/alsanjayllm/CitePulse-public"
+Issues = "https://github.com/alsanjayllm/CitePulse-public/issues"
 
 [project.scripts]
 citepulse = "citepulse.cli:cli"

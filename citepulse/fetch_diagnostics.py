@@ -40,7 +40,7 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger("citepulse.fetch_diagnostics")
 
-DEFAULT_USER_AGENT = "CitePulseBot/0.1 (+https://github.com/alsanjayllm/CitePulse)"
+DEFAULT_USER_AGENT = "CitePulseBot/0.1 (+https://github.com/alsanjayllm/CitePulse-public)"
 
 # --- Classification states (plan section 2/10) --------------------------
 SUCCESS = "SUCCESS"

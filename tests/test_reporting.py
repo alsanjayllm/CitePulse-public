@@ -2545,8 +2545,8 @@ def test_task_results_omits_final_page_excerpt_when_absent(session):
 
 
 def test_task_results_section_falls_back_to_kpi_58_when_48_unavailable(session):
-    """#48 and #58 share the same underlying task-readiness trace per
-    CLAUDE.md -- when #48 itself is unavailable (value=None) but #58 still
+    """#48 and #58 share the same underlying task-readiness trace --
+    when #48 itself is unavailable (value=None) but #58 still
     has a results list, the Task Results section must still render from
     #58 rather than being silently omitted."""
     _, run = _completed_run_with_site(session)

@@ -1,13 +1,13 @@
 # Layer-1 fact-grounded remediation templates, one per v1 KPI, rendered via
 # str.format_map() against a Finding's raw_data. Missing context renders
 # literally (see citepulse.remediation._SafeDict) rather than being invented
-# -- same "no fabrication" posture as ABAEO's config/backlog_fixes.yaml.
+# -- CitePulse never fabricates remediation text.
 #
 # A KPI only gets a template rendered when a real gap was detected (see
 # citepulse.remediation.build_finding) -- "zero remediation when perfect"
 # comes from that gate, not from anything in this file.
 #
-# Enhancement spec section 7.6 (narrative discipline): every gap_{band}
+# Narrative discipline: every gap_{band}
 # string below is two sentences joined by a "|||" delimiter -- an
 # interpretation sentence (what the observed number plausibly means for
 # this specific KPI), then a hypothesis sentence (a plausible, KPI-specific

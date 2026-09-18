@@ -14,5 +14,3 @@ logs/
 .ruff_cache/
 *.db
 .testdata/
-Inputs/oKPIS.xlsx
-Inputs/Requirements.txt

@@ -17,14 +17,13 @@ kpi_24 today:
 
 Screenshot/DOM-snapshot bytes that need a file go under
 `<data_dir>/evidence/<audit_run_id>/...` (Evidence.content_path); answer
-text is stored inline (Evidence.content_text) -- the same file-vs-inline
-split the original enhancement spec calls for (docs/Prompt for Claude
-Code CitePulse Enhancement Specification.txt, section 2).
+text is stored inline (Evidence.content_text) -- a deliberate
+file-vs-inline split based on payload size.
 
 `http_log` is a supported-but-currently-unused Evidence.kind: HAR-style
 network logging would need new Playwright network-event instrumentation
 that doesn't exist anywhere in CitePulse today, so it's left for a later
-phase rather than built here (see CLAUDE.md's architecture map).
+phase rather than built here.
 
 Same "never raise, best-effort, degrade rather than crash" contract as
 citepulse.screenshot/citepulse.ai_engines.ollama: any file-write or DB

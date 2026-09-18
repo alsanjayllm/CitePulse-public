@@ -1,0 +1,12 @@
+# CitePulse
+
+> Is your site cited by AI answers — and can an AI agent actually *use* it, not just read about it?
+
+CitePulse is a small, local-first, open-source AEO (Answer Engine Optimization) audit tool. It runs entirely on your own machine — no account, no API key, no data sent to a third party — using a local Ollama model instead of a paid LLM API by default. It audits a site's llms.txt readiness, AI crawl accessibility, AI citation rate, AI share of voice, and whether an AI agent can actually complete tasks on the site.
+
+- [README](README.md): install, usage, and current KPI coverage
+- [LICENSE](LICENSE): MIT
+- [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+
+Repository: https://github.com/alsanjayllm/CitePulse-public

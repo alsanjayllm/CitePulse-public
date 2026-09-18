@@ -1,7 +1,7 @@
 """KPI #1 (AI Crawl Accessibility). Checks whether known AI crawlers are
 explicitly disallowed in /robots.txt, plus /sitemap.xml presence as a
 secondary signal -- deliberately not a full sitemap-vs-llms.txt coverage
-diff (docs/DESIGN.md's own notes defer that to a later phase).
+diff, which is deferred to a later phase.
 
 Reuses the shared `citepulse/fetch_diagnostics.py` layer (the same one
 `citation_correctness.py` already uses) instead of a new ad hoc httpx

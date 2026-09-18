@@ -64,7 +64,7 @@ def unavailable_kpi_result(
 ) -> tuple[KPIResult, None]:
     """Builds the shared-shape unavailable KPIResult both kpi_48 and
     kpi_58 return whenever there's no site-attributable evidence left to
-    score -- never a fabricated value, per CLAUDE.md's non-negotiable.
+    score -- CitePulse never fabricates a value.
 
     `diagnostic` is optional (kept backward compatible with every
     pre-existing call site, which stays on the implicit "value is None ->

@@ -148,8 +148,7 @@ def auto_resolve_context_review(session: Session, site: Site) -> None:
     can't (or, for a batch run, shouldn't) block on a human review step:
     extracts a company_profile (if one hasn't been set already) and
     immediately marks it reviewed, rather than blocking. Originally
-    CLI-only (see docs/superpowers/specs/2026-09-01-track-b-business-
-    narrative-design.md); also used by the Streamlit UI's batch-audit mode
+    CLI-only; also used by the Streamlit UI's batch-audit mode
     (citepulse/ui/pages/run_audit.py), which needs the same no-prompt
     posture as the CLI so a multi-site batch can run unattended. The
     single-site UI flow still blocks on its own manual review step and

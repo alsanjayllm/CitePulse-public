@@ -55,7 +55,8 @@ def render_limitations(evidence: dict) -> str:
 
 def polish_finding(layer1_text: str, evidence: dict) -> str | None:
     """Layer 2. Returns None (falls back to Layer 1) until the Ollama
-    adapter exists and REMEDIATION_LLM_POLISH is enabled -- see the
-    CitePulse plan's "Remediation & attribution" section for the intended
-    grounded-rewrite prompt + grounding-check-then-fallback design."""
+    adapter exists and REMEDIATION_LLM_POLISH is enabled -- the intended
+    design is a grounded-rewrite prompt with a grounding-check-then-fallback
+    path, so the rewrite is discarded rather than shipped whenever it
+    can't be verified against the evidence."""
     return None

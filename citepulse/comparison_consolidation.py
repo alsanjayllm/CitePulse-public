@@ -40,9 +40,9 @@ list (one entry per run: `model` + `duration_seconds`, via
 derived from its existing `started_at`/`completed_at` columns rather
 than a new persisted fact.
 
-Findings are deliberately NOT consolidated/synthesized here (CLAUDE.md's
-"a Finding is only ever created when a real gap is detected" -- there is
-no mechanism here, or anywhere in this module, that creates one): the
+Findings are deliberately NOT consolidated/synthesized here (a Finding is
+only ever created when a real gap is detected -- there is no mechanism
+here, or anywhere in this module, that creates one): the
 3 runs' own already-persisted Finding rows per KPI are grouped and shown
 side by side by citepulse.reporting.gather_consolidated_report_data
 instead, verbatim, with no new DB write and no new LLM call.

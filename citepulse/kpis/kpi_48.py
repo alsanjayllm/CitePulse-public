@@ -46,8 +46,8 @@ from citepulse.task_readiness.runner import (
 _KPI = KPI_CATALOG[48]
 
 # First-pass calibration, mirroring #22/#24's own admitted "no real data
-# yet" posture (docs/DESIGN.md) -- 90/50 best_in_class/good thresholds,
-# the same convention already used for the citation-family KPIs.
+# yet" posture -- 90/50 best_in_class/good thresholds, the same
+# convention already used for the citation-family KPIs.
 _BEST_IN_CLASS = 90.0
 _GOOD = 50.0
 

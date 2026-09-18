@@ -1586,13 +1586,13 @@ def _segment_label(segment: str) -> str:
 
 
 def _ai_visibility_data(results: list[KPIResult]) -> dict | None:
-    """Phase 3: pulls #22 (Citation Rate) and #24 (AI Share of Voice)'s
+    """Pulls #22 (Citation Rate) and #24 (AI Share of Voice)'s
     per-segment breakdown (citepulse.kpis.kpi_22/_24's `segment_breakdown`
     raw_data key) into one shape both report renderers can walk -- the
-    enhancement spec's "prompt corpus summary by segment" (section 3.2/7.4).
+    report's "prompt corpus summary by segment".
     Returns None when neither KPI has a non-empty breakdown to show (e.g.
-    a run predating Phase 3, or a run where check_citation_rate never got
-    even an unconfirmed probe)."""
+    a run predating segment breakdowns, or a run where check_citation_rate
+    never got even an unconfirmed probe)."""
     citation_result = next(
         (r for r in results if r.kpi_id == _CITATION_RATE_KPI_ID), None
     )
@@ -1789,15 +1789,14 @@ def _clean_final_excerpt(text: str | None) -> str | None:
 def _task_results_data(
     results: list[KPIResult], evidence_by_task: dict[str, list[Evidence]] | None = None
 ) -> list[dict] | None:
-    """Enhancement spec section 7.3's per-task 'Task Results' table.
+    """Builds the report's per-task 'Task Results' table.
     Reads from whichever of KPI #48 (Task Completion Success Rate) or #58
     (Interaction Readiness) has a populated raw_data["results"] list --
-    both are built on the same shared task-readiness trace (see CLAUDE.md's
-    architecture map), so #48 is preferred and #58 is only a fallback for
-    the rare case where #48 is unavailable but #58 somehow isn't.
+    both are built on the same shared task-readiness trace, so #48 is
+    preferred and #58 is only a fallback for the rare case where #48 is
+    unavailable but #58 somehow isn't.
 
-    Deliberately excludes a "preconditions" field even though the
-    original enhancement spec's task schema has one -- CitePulse's task
+    Deliberately excludes a "preconditions" field -- CitePulse's task
     model has no such concept, so nothing is fabricated to fill it.
 
     Includes a cleaned/shortened final_page_excerpt (via
@@ -3100,9 +3099,9 @@ def render_html_report(data: dict) -> str:
     band, a verdict/browser-chrome hero row, a 5-card KPI scorecard, a
     top-findings list (omitted when there are zero findings), a
     collapsible Run Manifest section (Phase 2; omitted for a run with no
-    persisted manifest), an AI Visibility by Segment section (Phase 3;
-    omitted when #22/#24 have no segment_breakdown to show), a Task
-    Results section (enhancement spec section 7.3; omitted when neither
+    persisted manifest), an AI Visibility by Segment section (omitted
+    when #22/#24 have no segment_breakdown to show), a Task
+    Results section (omitted when neither
     #48 nor #58 has a results list to show -- see _task_results_data),
     the Product & Audience Discovery section, and a vs. Previous Run
     comparison, in that order -- the same section order as

@@ -1,9 +1,9 @@
 """Generates a per-site task list for the Playwright harness (harness.py)
 instead of requiring/shipping a hand-authored task file -- see this
 module's package docstring for why CitePulse deliberately has no
-task_library.py. Adapted from ABAEO's task_readiness/task_generator.py,
-built directly on citepulse.ai_engines.ollama.ask_with_retry() (no
-engine-abstraction layer, since CitePulse has exactly one engine).
+task_library.py. Built directly on
+citepulse.ai_engines.ollama.ask_with_retry() (no engine-abstraction
+layer, since CitePulse has exactly one engine).
 
 Two sequential Ollama calls, not one: a context call derives segments,
 products, and the kept/dropped jobs-to-be-done, then a tasks call authors

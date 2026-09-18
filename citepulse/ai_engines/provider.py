@@ -2,9 +2,8 @@
 Ollama (the only provider until now) and OpenRouter (cloud), added so a
 3-way model comparison can mix a cloud model into the same audit
 pipeline everything else already runs against. Not an ABC/protocol
-layer (not this codebase's style, per CLAUDE.md's existing "Local-
-Ollama chat adapter... no engine-abstraction layer" precedent in
-task_generator.py) -- just two flat functions matching
+layer -- that isn't this codebase's style (see task_generator.py's
+"no engine-abstraction layer" precedent) -- just two flat functions matching
 citepulse.ai_engines.ollama's exact shape, so every existing call site
 only needs an import swap plus an added `api_key` kwarg (see this
 package's other modules' own docstrings for exactly which ones).

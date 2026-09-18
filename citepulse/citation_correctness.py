@@ -3,7 +3,7 @@ AI answer makes about it, determine whether the citation is *correct* --
 i.e. the fetched cited page actually supports the claim (or contradicts it).
 
 `check_citation_correctness(cited_url, claim_text)` is the primary entry
-point (exact signature from the CitePulse plan). Per SRS FR-4.1/FR-4.3 it:
+point. Per SRS FR-4.1/FR-4.3 it:
 
 1. Fetches the cited page (reusing the httpx/BeautifulSoup approach the
    crawler already uses -- see citepulse/crawler/homepage.py).

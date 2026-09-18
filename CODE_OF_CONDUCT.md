@@ -44,7 +44,7 @@ requests, discussions) associated with this project.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the project maintainer by opening a
-[GitHub issue](https://github.com/alsanjayllm/CitePulse/issues) or by
+[GitHub issue](https://github.com/alsanjayllm/CitePulse-public/issues) or by
 contacting them directly. All complaints will be reviewed and
 investigated promptly and fairly.
 

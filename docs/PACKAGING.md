@@ -237,8 +237,8 @@ calling `citepulse.exe launch` (pydantic-settings reads env vars
 case-insensitively with no prefix, so this is sufficient — no `.env` file
 needed in the zip); a normal pip install/dev checkout, or the exe run
 directly without going through the `.bat`, defaults to `False` (today's
-full nav, unchanged). See `CLAUDE.md`'s Status paragraph for the exact
-list of what it gates.
+full nav, unchanged). See `citepulse/ui/components.py`'s `core_edition_mode`
+handling for the exact list of what it gates.
 
 `Start CitePulse.bat` also sets `CITEPULSE_DATA_DIR=%~dp0data`, so each
 extracted copy of the zip keeps its own self-contained `citepulse.db`/

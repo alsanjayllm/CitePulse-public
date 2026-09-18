@@ -20,7 +20,7 @@ from citepulse.fetch_diagnostics import (
 )
 from citepulse.settings import get_settings
 
-USER_AGENT = "CitePulseBot/0.1 (+https://github.com/alsanjayllm/CitePulse)"
+USER_AGENT = "CitePulseBot/0.1 (+https://github.com/alsanjayllm/CitePulse-public)"
 
 _MAX_NAV_LABELS = 20
 _MAX_NAV_LINKS = 20

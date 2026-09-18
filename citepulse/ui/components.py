@@ -630,7 +630,7 @@ def _render_pull_suggestion(rec: ModelRecommendation, key: str) -> None:
 # workflow: a new KPI's catalog entry can land before its runner does).
 _PICKABLE_KPI_IDS = [kpi_id for kpi_id in _KPI_RUNNER_IDS if kpi_id in KPI_CATALOG]
 
-# The v1-core KPI set (see CLAUDE.md's core-edition Status paragraph): #1
+# The v1-core KPI set: #1
 # AI Crawl Accessibility, #22 Citation Rate, #24 AI Share of Voice, #46
 # llms.txt Readiness, #48 Task Completion Success, #58 Interaction
 # Readiness. render_kpi_picker() defaults its multiselect to this subset

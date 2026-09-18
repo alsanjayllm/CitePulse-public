@@ -36,10 +36,9 @@ between the two runs, the caveat keeps its original, more cautious
 wording. Either way this stays a real signal but a noisier one than
 #22/#24/#46's, whose evidence-gathering methodology is otherwise
 identical each run. Documented honestly here rather than building a full
-task-versioning system, which the enhancement spec's section 5 treats as
-separate, larger scope than this phase's narrower section 9 acceptance
-criterion ("allow regression comparison... on the same task/prompt
-versions").
+task-versioning system, which is out of scope for this feature: the goal
+here is only to allow regression comparison across runs on the same
+task/prompt versions.
 
 Every comparable KPI also gets a model-mismatch caveat (see
 _model_changed_caveat) whenever the two runs used different models --

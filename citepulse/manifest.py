@@ -7,15 +7,14 @@ run_audit()` and persisted on the `AuditRun` row. Never regenerated when
 a past run is reopened (`citepulse.reporting.gather_report_data` only
 reads it) -- same "generate once, persist" discipline as remediation text
 (`citepulse.remediation`) and the business narratives (`citepulse.
-business_narrative`); see CLAUDE.md's non-negotiables.
+business_narrative`).
 
-Adapted from the original enhancement spec's manifest shape (docs/Prompt
-for Claude Code CitePulse Enhancement Specification.txt, section 2) to
-what CitePulse can actually attest to today: no multi-LLM-provider
-concept (Ollama-only, single model per run), no browsing/search-enabled
-settings, no region/locale config, no crawled/excluded-path tracking.
-Every field below is read directly off this AuditRun/its KPIResults --
-never a fabricated field CitePulse has no real signal for."""
+Reflects what CitePulse can actually attest to today: no
+multi-LLM-provider concept (Ollama-only, single model per run), no
+browsing/search-enabled settings, no region/locale config, no
+crawled/excluded-path tracking. Every field below is read directly off
+this AuditRun/its KPIResults -- never a fabricated field CitePulse has
+no real signal for."""
 
 from citepulse import measurement_status as ms
 from citepulse.ai_engines.citation_rate import CITATION_PROMPT_SCHEME_VERSION

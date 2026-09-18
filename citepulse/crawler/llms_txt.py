@@ -1,15 +1,12 @@
-"""KPI #46 (llms.txt Readiness). Adapted from ABAEO's
-crawlers/robots_checker.py check_llms_txt()/_llms_txt_tier() -- same 0-3
-tiering (0=absent, 1=present but a near-empty stub, 2=present with a real
-body but missing either section headers or a URL, 3=best-in-class: has
-both), fixed to use forward-slash paths when joining onto the base URL
-(the ABAEO source has a backslash-prefixed path there that urljoin()
-doesn't treat as a path separator).
+"""KPI #46 (llms.txt Readiness). Uses a 0-3 tiering (0=absent, 1=present
+but a near-empty stub, 2=present with a real body but missing either
+section headers or a URL, 3=best-in-class: has both). Paths are joined
+onto the base URL with forward slashes so `urljoin()` treats them as a
+path separator correctly.
 
 Classifies each candidate path's response against the canonical
-`citepulse.measurement_status` taxonomy (see the "Eliminate False
-UNAVAILABLE State from KPI Reporting" plan): a genuine 200 or 404/410 is
-a real, MEASURED answer (present or confirmed absent); a 429/5xx/timeout/
+`citepulse.measurement_status` taxonomy: a genuine 200 or 404/410 is a
+real, MEASURED answer (present or confirmed absent); a 429/5xx/timeout/
 DNS/TLS/connection failure is NOT_DETERMINED with a specific diagnostic
 -- never silently folded into a confident "absent" tier 0, and never
 labeled the generic, no-longer-used "unavailable". Transient statuses
@@ -27,7 +24,7 @@ import httpx
 
 from citepulse import measurement_status as ms
 
-USER_AGENT = "CitePulseBot/0.1 (+https://github.com/alsanjayllm/CitePulse)"
+USER_AGENT = "CitePulseBot/0.1 (+https://github.com/alsanjayllm/CitePulse-public)"
 CANDIDATE_PATHS = ("/llms.txt", "/.well-known/llms.txt")
 
 # 429/5xx are the only statuses worth retrying -- anything else (200,

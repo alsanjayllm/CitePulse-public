@@ -1,6 +1,6 @@
-"""Two layers above harness.run_task -- the one part of this module with
-no ABAEO equivalent (ABAEO's runner.py is multi-engine orchestration
-CitePulse doesn't need; see the package docstring):
+"""Two layers above harness.run_task -- there's no multi-engine
+orchestration here since CitePulse doesn't need it (see the package
+docstring):
 
   1. run_task_readiness_tasks(): a cost-bounded loop over a task list,
      capped by max_task_runs -- one task's unexpected exception never

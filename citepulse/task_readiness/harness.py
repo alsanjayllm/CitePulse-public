@@ -2,12 +2,11 @@
 session is repeatedly shown a summary of the current page's interactive
 elements and asked to choose the next action (click / fill / navigate /
 done) via local Ollama, until it finishes the task or a step/failure limit
-is hit. Adapted from ABAEO's task_readiness/harness.py with the
-multi-engine `engine`/`engine_name` parameters removed -- CitePulse calls
-citepulse.ai_engines.ollama.ask_with_retry() directly, there being exactly
-one engine.
+is hit. CitePulse calls citepulse.ai_engines.ollama.ask_with_retry()
+directly, there being exactly one engine, so no multi-engine
+`engine`/`engine_name` parameters are needed here.
 
-Honesty design (CLAUDE.md's "never fabricate" non-negotiable): the acting
+Honesty design (CitePulse never fabricates a result): the acting
 LLM's own "done, success=true" self-report is never trusted as the KPI's
 success signal -- an LLM can hallucinate having completed a task it
 didn't. `TaskRunResult.success` is instead computed independently by
@@ -47,8 +46,7 @@ neither overridable by task config:
      destructive action. The same list also applies to a `navigate`
      action's target value (e.g. a same-origin "/account/delete" path),
      not just a clicked element's text -- both are checked by
-     `_unsafe_reason()`. Known, accepted limitation (inherited from
-     ABAEO's identical design): the click-side check only inspects the
+     `_unsafe_reason()`. Known, accepted limitation: the click-side check only inspects the
      clicked element's *visible text*, not its `onclick`/JS behavior or a
      same-origin form's actual destination -- a same-origin destructive
      action behind an innocuously-labeled element (e.g. a button reading
@@ -225,7 +223,7 @@ class TaskStep:
 # missing-vs-race-condition detection this harness doesn't do beyond the
 # conservative, pattern-only _detect_gated_boundary() check below, so
 # anything past that is left out of the mapping rather than guessed at
-# (CLAUDE.md's "never fabricate" posture applies to this attribution just
+# (CitePulse's "never fabricate" posture applies to this attribution just
 # as much as a KPI value).
 #
 # Five-way taxonomy (spec-aligned names): site_failure, policy_

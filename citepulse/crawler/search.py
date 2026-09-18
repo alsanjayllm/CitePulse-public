@@ -1,15 +1,9 @@
-"""Local search module for citation-testing KPIs (#22/#24). Adapted from
-the sibling project mytavily's search.py, simplified per DESIGN.md's
-architecture decision #1: DuckDuckGo + Google News RSS are the required,
-unauthenticated primary path (CitePulse's "no API key needed" promise
-must hold for the base product); Serper/Tavily/Bing are optional
-bring-your-own-key fallbacks, attempted only when the primary path
-returns nothing. Dropped entirely from mytavily's version: the dead
-Google Custom Search branch, mytavily's own inbound bearer-auth (that
-guards mytavily-as-a-service from other callers -- not applicable to a
-CLI tool with no inbound callers), the financial-data domain-registry
-quality gate, Ollama query compression, and the SQLite response cache --
-all mytavily-specific to its trading/finance research use case.
+"""Local search module for citation-testing KPIs (#22/#24). DuckDuckGo +
+Google News RSS are the required, unauthenticated primary path (CitePulse's
+"no API key needed" promise must hold for the base product); Serper/Tavily/
+Bing are optional bring-your-own-key fallbacks, attempted only when the
+primary path returns nothing. No inbound auth is needed here since this is
+a single-user CLI tool with no inbound callers to guard against.
 """
 
 import logging

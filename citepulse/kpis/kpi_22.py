@@ -33,10 +33,9 @@ _GOOD = 50.0
 
 def _segment_breakdown(prompts_tested: list[dict]) -> list[dict]:
     """Per-segment counts/rate for the report's "prompt corpus summary by
-    segment" (enhancement spec section 3.2/7.4) -- grouped from
-    check_citation_rate's per-prompt `segment` field (Phase 3), in
-    first-seen segment order. citation_rate_percent is None for a segment
-    with zero confirmed probes, never a fabricated 0."""
+    segment" -- grouped from check_citation_rate's per-prompt `segment`
+    field, in first-seen segment order. citation_rate_percent is None for
+    a segment with zero confirmed probes, never a fabricated 0."""
     order: list[str] = []
     by_segment: dict[str, list[dict]] = {}
     for probe in prompts_tested:

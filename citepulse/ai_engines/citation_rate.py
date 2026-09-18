@@ -13,10 +13,8 @@ that into a competitive, position/frequency-weighted score; #22 ignores
 it entirely. The reusable primitive both KPIs build on is
 citepulse.ai_engines.ollama.
 
-Phase 3 (prompt corpus expansion): the prompt corpus is segmented into
-the six intent categories from the enhancement spec (docs/Prompt for
-Claude Code CitePulse Enhancement Specification.txt, section 3.2/5) --
-category discovery, capability, comparison, purchase, implementation,
+Prompt corpus expansion: the prompt corpus is segmented into six intent
+categories -- category discovery, capability, comparison, purchase, implementation,
 brand navigation -- each with up to 3 parameterized templates (see
 _SEGMENT_TEMPLATES). `citepulse.settings.citation_rate_max_prompts`
 bounds how many of those (round-robin across segments, so a smaller cap
@@ -41,8 +39,8 @@ corpus that's already an honest, meaningful improvement over the old
 this company sells" signal than a meta description even without that
 structured segmentation, so it's still worth threading through.
 
-Phase 6 (four extra AI-visibility metrics, enhancement spec section 3.2):
-alongside citation_rate_percent (#22) and the share-of-voice score (#24,
+Four extra AI-visibility metrics: alongside citation_rate_percent (#22)
+and the share-of-voice score (#24,
 computed in kpis/kpi_24.py from this module's domain_mentions), this
 module also computes -- per confirmed probe -- the signal for
 mention_rate, recommendation_rate, citation_quality_score, and
@@ -516,7 +514,7 @@ def _infer_brand_name(
     return domain.split(".")[0] if domain else "the site"
 
 
-# Six intent segments from the enhancement spec (section 3.2/5): category
+# Six intent segments: category
 # discovery, capability, comparison, purchase, implementation, brand
 # navigation. Each has up to 3 templates, parameterized by `topic`
 # (what the site is/offers) and `brand` (its name) -- deliberately plain

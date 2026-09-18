@@ -123,7 +123,7 @@ def ask(
         # OpenRouter's documented (optional, but polite) attribution
         # headers -- a local, no-account tool with no stable public URL,
         # so a generic self-description rather than a real deployed site.
-        "HTTP-Referer": "https://github.com/alsanjayllm/CitePulse",
+        "HTTP-Referer": "https://github.com/alsanjayllm/CitePulse-public",
         "X-Title": "CitePulse",
     }
 

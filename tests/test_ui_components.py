@@ -3,8 +3,7 @@ citepulse.reporting.render_markdown_report on the one thing that matters
 most: a KPIResult.value of None must render as its canonical
 "not determined" status (never the retired "unavailable" status, and
 never a fabricated "0"), in either renderer. Skipped when the optional
-`ui` extra (streamlit) isn't installed -- CI runs `.[dev]` only, per
-CLAUDE.md's dev workflow."""
+`ui` extra (streamlit) isn't installed -- CI runs `.[dev]` only."""
 
 import pytest
 from sqlmodel import Session, SQLModel, create_engine

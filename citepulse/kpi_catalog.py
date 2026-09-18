@@ -1,7 +1,6 @@
-"""The 5 v1 KPIs, curated from ABAEO's 71-KPI catalog for value proposition
-and differentiation (see the CitePulse plan's "KPI bundle" section). Ids
-match ABAEO's own numbering so a reader familiar with ABAEO can cross
-reference directly; CitePulse itself never computes the other 66.
+"""The v1 KPIs, curated for value proposition and differentiation. KPI ids
+are stable identifiers, not a dense 1..N sequence -- gaps are intentional
+and reserved for KPIs not yet implemented.
 """
 
 from dataclasses import dataclass
@@ -18,9 +17,8 @@ class KPIDefinition:
 
 
 KPI_CATALOG: dict[int, KPIDefinition] = {
-    # v2 "Foundation" KPI (cheap, lowest differentiation per docs/DESIGN.md's
-    # KPI bundle section) -- added after field evidence (an audit run
-    # against a competitor AEO tool) showed AI-crawler
+    # "Foundation" KPI (cheap, lowest differentiation) -- added after field
+    # evidence (an audit run against a competitor AEO tool) showed AI-crawler
     # accessibility is a headline feature in this competitive space.
     1: KPIDefinition(
         id=1,

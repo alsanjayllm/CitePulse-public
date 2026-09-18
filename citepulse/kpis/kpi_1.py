@@ -1,6 +1,5 @@
-"""KPI #1 -- AI Crawl Accessibility. A v2 "Foundation" KPI (see
-docs/DESIGN.md's KPI bundle section): field evidence from an audit run
-against a competitor AEO tool showed AI-crawler
+"""KPI #1 -- AI Crawl Accessibility. A "Foundation" KPI: field evidence
+from an audit run against a competitor AEO tool showed AI-crawler
 accessibility is a headline feature in this competitive space --
 CitePulse measured none of it before this.
 

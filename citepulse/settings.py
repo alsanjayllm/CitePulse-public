@@ -114,7 +114,7 @@ class Settings(BaseSettings):
     task_readiness_call_delay_seconds: float = 0.0
     task_readiness_min_sample_size: int = 3
     task_readiness_user_agent: str = (
-        "CitePulseBot/0.1 (+https://github.com/alsanjayllm/CitePulse)"
+        "CitePulseBot/0.1 (+https://github.com/alsanjayllm/CitePulse-public)"
     )
     # FR-7 per-action capture: when True, the task harness captures a
     # best-effort viewport screenshot at every action (and records the

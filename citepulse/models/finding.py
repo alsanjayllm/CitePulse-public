@@ -10,8 +10,8 @@ class Finding(SQLModel, table=True):
     benchmark simply never produces a Finding, so "zero remediation when
     perfect" falls out of that gate rather than being a special case.
 
-    Carries the remediation text ABAEO keeps on a separate BacklogItem
-    ticket -- v1 has no ticket layer (only 5 KPIs, no priority-score
+    Carries the remediation text directly rather than on a separate ticket
+    entity -- v1 has no ticket layer (only 5 KPIs, no priority-score
     ranking needed), so the two remediation fields live here instead.
     Both are generated once, at audit-run time, and persisted: reopening
     a past run in the Archive UI must never regenerate them.

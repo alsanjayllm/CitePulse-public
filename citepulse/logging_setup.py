@@ -1,7 +1,7 @@
 """Local-only observability logging -- a rotating file under CitePulse's
 own data dir, and nothing else. No network handler exists anywhere in
-this module by design: CitePulse never phones home (see CLAUDE.md), and
-that must hold for logging too.
+this module by design: CitePulse never phones home, and that must hold
+for logging too.
 
 Configures only the "citepulse" logger (not the root logger), so every
 existing `logging.getLogger("citepulse.*")` call already in the codebase

@@ -4,7 +4,7 @@ KPI #48/#58 (Task Readiness, via citepulse.task_readiness) and Layer-2
 remediation polish (citepulse.remediation.polish_finding) later/since.
 Deliberately a thin, citation-agnostic chat wrapper (RAG orchestration and
 citation-matching logic live in citepulse.ai_engines.citation_rate) so it
-stays reusable without rework -- see docs/DESIGN.md's "What's still open".
+stays reusable without rework as new callers are added.
 
 Also home to list_installed_models()/pull_model(), the two calls behind
 the UI's model picker (citepulse.model_recommender /

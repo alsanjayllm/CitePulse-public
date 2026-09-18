@@ -3,10 +3,10 @@
 Ships as its own tiny, dependency-free module because it's read by every
 layer that talks about "did we get a real answer for this KPI" --
 `citepulse/kpis/*`, `manifest.py`, `reporting.py`, `regression.py`,
-`comparison_consolidation.py`, and the Streamlit UI -- and CLAUDE.md's
-"never fabricate a KPI value" non-negotiable depends on all of them
-agreeing on the same vocabulary rather than drifting into KPI-specific
-ad-hoc strings.
+`comparison_consolidation.py`, and the Streamlit UI -- and CitePulse's
+"never fabricate a KPI value" rule depends on all of them agreeing on
+the same vocabulary rather than drifting into KPI-specific ad-hoc
+strings.
 
 A KPI outcome has three, deliberately separate, parts:
 

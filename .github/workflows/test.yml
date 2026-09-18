@@ -31,5 +31,5 @@ jobs:
 # only gets touched inside chromium.launch(), a call the fakes never make.
 # The real install/run path (`citepulse setup` actually downloading
 # Chromium, a real `citepulse audit <url>` driving it against a live
-# site) is validated by the not-yet-built Docker fresh-environment track
-# (docs/DESIGN.md's testing strategy section), not CI.
+# site) is validated by the not-yet-built Docker fresh-environment track,
+# not CI.
