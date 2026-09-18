@@ -50,6 +50,14 @@ is the opposite on both counts:
   (find pricing, fill a form). Almost no other tool, free or paid, tests
   this today.
 
+## Further reading
+
+The design principles behind CitePulse's scoring — and how it compares to
+Profound, AthenaHQ, and Scrunch AI — are written up in more depth here:
+
+- [The Answer Layer](https://medium.com/@alsanjay/the-answer-layer-dcd1e25da9d1) — Medium
+- [The Answer Layer](https://dev.to/alsanjayllm/the-answer-layer-3ef9) — dev.to
+
 ## How CitePulse compares
 
 CitePulse isn't trying to out-feature the big AEO/GEO SaaS platforms — it's
