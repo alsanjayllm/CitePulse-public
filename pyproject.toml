@@ -1,6 +1,6 @@
 [project]
 name = "citepulse"
-version = "1.6.2"
+version = "1.6.3"
 description = "Local-first, open-source AEO audit tool: is your site cited by AI, and can an AI agent actually use it?"
 authors = [{name = "alsanjayllm"}]
 requires-python = ">=3.11"
