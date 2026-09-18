@@ -20,7 +20,8 @@ OpenRouter cloud model), a KPI subset picker, an N-run trend view, and a
 Every KPI follows the same design principle: **never fabricate a score**.
 When something can't be measured (a blocked fetch, a rate-limited
 request, an ambiguous LLM answer), CitePulse reports "not determined,"
-never a guessed number. See [`docs/PACKAGING.md`](docs/PACKAGING.md) for
+never a guessed number. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+for how the pieces fit together, [`docs/PACKAGING.md`](docs/PACKAGING.md) for
 the Windows build, and [CONTRIBUTING.md](CONTRIBUTING.md) if you want to
 add a KPI or open a PR.
 
