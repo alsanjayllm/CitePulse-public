@@ -90,7 +90,10 @@ def test_missing_robots_txt_with_sitemap_is_best_in_class():
 
 
 @respx.mock
-def test_some_crawlers_blocked_is_tier_1_with_attribution():
+def test_training_only_crawler_blocked_is_tier_1_with_attribution():
+    """A blocked training-only crawler (GPTBot) is a real gap but should
+    not be treated as severely as a blocked answer/search crawler -- it
+    has no immediate effect on citation eligibility."""
     body = "User-agent: GPTBot\nDisallow: /\n\nUser-agent: *\nDisallow:\n"
     respx.get("https://example.com/robots.txt").mock(
         return_value=Response(200, text=body)
@@ -107,6 +110,35 @@ def test_some_crawlers_blocked_is_tier_1_with_attribution():
     assert finding.severity == "medium"
     # Attribution: names the actual blocked crawler and robots.txt URL.
     assert "GPTBot" in finding.recommended_fix
+    assert "https://example.com/robots.txt" in finding.recommended_fix
+    assert "training crawler" in finding.recommended_fix
+    assert finding.raw_data["blocked_answer_crawlers"] == []
+
+
+@respx.mock
+def test_answer_crawler_blocked_is_critical_even_if_others_allowed():
+    """Blocking a single answer/search crawler (OAI-SearchBot) -- even
+    while every other tested AI crawler, including every training
+    crawler, is still allowed -- must be as severe as blocking
+    everything: it directly removes citation eligibility today."""
+    body = (
+        "User-agent: OAI-SearchBot\nDisallow: /\n\nUser-agent: *\nDisallow:\n"
+    )
+    respx.get("https://example.com/robots.txt").mock(
+        return_value=Response(200, text=body)
+    )
+    respx.get("https://example.com/sitemap.xml").mock(
+        return_value=Response(200, text="<urlset></urlset>")
+    )
+
+    result, finding = kpi_1.run(uuid4(), "https://example.com")
+
+    assert result.value == 0.0
+    assert result.band == "critical"
+    assert finding is not None
+    assert finding.severity == "high"
+    assert "OAI-SearchBot" in finding.recommended_fix
+    assert "answer/search crawler" in finding.recommended_fix
     assert "https://example.com/robots.txt" in finding.recommended_fix
 
 
@@ -140,6 +172,8 @@ def test_on_progress_is_forwarded_to_check_robots_txt(monkeypatch):
             "checked_url": "https://example.com/robots.txt",
             "blocked_crawlers": [],
             "allowed_crawlers": [],
+            "blocked_training_crawlers": [],
+            "blocked_answer_crawlers": [],
             "all_crawlers_checked": [],
             "sitemap_present": False,
             "sitemap_url": "https://example.com/sitemap.xml",
@@ -168,6 +202,8 @@ def test_on_progress_omitted_by_default_is_not_forwarded(monkeypatch):
             "checked_url": "https://example.com/robots.txt",
             "blocked_crawlers": [],
             "allowed_crawlers": [],
+            "blocked_training_crawlers": [],
+            "blocked_answer_crawlers": [],
             "all_crawlers_checked": [],
             "sitemap_present": False,
             "sitemap_url": "https://example.com/sitemap.xml",

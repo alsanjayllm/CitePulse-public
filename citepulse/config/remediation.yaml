@@ -1,13 +1,13 @@
 # Layer-1 fact-grounded remediation templates, one per v1 KPI, rendered via
 # str.format_map() against a Finding's raw_data. Missing context renders
 # literally (see citepulse.remediation._SafeDict) rather than being invented
-# -- CitePulse never fabricates remediation text.
+# -- same "no fabrication" posture as ABAEO's config/backlog_fixes.yaml.
 #
 # A KPI only gets a template rendered when a real gap was detected (see
 # citepulse.remediation.build_finding) -- "zero remediation when perfect"
 # comes from that gate, not from anything in this file.
 #
-# Narrative discipline: every gap_{band}
+# Enhancement spec section 7.6 (narrative discipline): every gap_{band}
 # string below is two sentences joined by a "|||" delimiter -- an
 # interpretation sentence (what the observed number plausibly means for
 # this specific KPI), then a hypothesis sentence (a plausible, KPI-specific
@@ -23,23 +23,33 @@
 # what that specific KPI actually measures.
 
 "1":
-  # AI Crawl Accessibility -- tiered 0 (every tested AI crawler blocked)
-  # to 3 (best-in-class: no AI crawler blocked and a sitemap.xml is
-  # published). Only tiers 0-2 produce a Finding; tier 3 produces none.
+  # AI Crawl Accessibility -- tiered 0 (an AI answer/search crawler is
+  # blocked, which also covers the "every tested AI crawler blocked"
+  # case) to 3 (best-in-class: no AI crawler blocked and a sitemap.xml is
+  # published). Tier 1 is the less-severe "AI training crawler(s) only"
+  # gap -- see citepulse/kpis/kpi_1.py's tiering docstring for why the two
+  # are weighted differently rather than just counted. Only tiers 0-2
+  # produce a Finding; tier 3 produces none.
   tier_0: >-
-    Every tested AI crawler ({blocked_crawlers}) is explicitly disallowed
-    in robots.txt at {robots_txt_url}.|||This likely means answer engines
-    and AI crawlers cannot fetch this site's pages at all, regardless of
-    how good the content itself is -- remove the blanket Disallow rule
-    (or add an explicit "Allow: /" entry) for these user-agents in
-    robots.txt, then re-check whether AI Crawl Accessibility rises off
-    zero.
+    {blocked_crawlers} is explicitly disallowed in robots.txt at
+    {robots_txt_url}, including an AI answer/search crawler
+    ({blocked_answer_crawlers}) -- a crawler an AI product fetches live to
+    answer a user's question, not just to train a future
+    model.|||Blocking an AI answer/search crawler directly removes this
+    site from citation eligibility for the answer engine it powers right
+    now, regardless of what any AI training crawler is allowed to do --
+    remove the blanket Disallow rule (or add an explicit "Allow: /"
+    entry) for {blocked_answer_crawlers} in robots.txt, then re-check
+    whether AI Crawl Accessibility rises off critical.
   tier_1: >-
-    {blocked_crawlers} is disallowed in robots.txt at {robots_txt_url},
-    while other tested AI crawlers are allowed.|||This selectively blocks
-    some answer engines from citing this site while others can reach it
-    -- if this exclusion isn't deliberate, remove the Disallow rule (or
-    add an explicit "Allow: /" entry) for {blocked_crawlers} and re-check
+    {blocked_crawlers} -- an AI training crawler, which only ingests
+    content for some future model rather than fetching it live to answer
+    questions -- is disallowed in robots.txt at {robots_txt_url}, while
+    every tested AI answer/search crawler remains allowed.|||This keeps
+    this site out of future AI training datasets but should not directly
+    affect today's citation eligibility in AI answers -- if this
+    exclusion isn't deliberate, remove the Disallow rule (or add an
+    explicit "Allow: /" entry) for {blocked_crawlers} and re-check
     whether every tested AI crawler is allowed.
   tier_2: >-
     No AI crawler is blocked in robots.txt at {robots_txt_url}, but no

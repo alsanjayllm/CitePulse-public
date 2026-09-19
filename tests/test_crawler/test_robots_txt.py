@@ -3,7 +3,12 @@ import respx
 from httpx import Response
 
 from citepulse import measurement_status as ms
-from citepulse.crawler.robots_txt import AI_CRAWLERS, check_robots_txt
+from citepulse.crawler.robots_txt import (
+    AI_CRAWLERS,
+    _ANSWER_CRAWLERS,
+    _TRAINING_CRAWLERS,
+    check_robots_txt,
+)
 
 
 @respx.mock
@@ -19,8 +24,47 @@ def test_specific_crawler_blocked_is_detected():
     assert result["measurement_status"] == ms.MEASURED
     assert result["present"] is True
     assert "GPTBot" in result["blocked_crawlers"]
-    assert "ClaudeBot" in result["allowed_crawlers"]
+    assert "PerplexityBot" in result["allowed_crawlers"]
     assert result["sitemap_present"] is False
+
+
+@respx.mock
+def test_training_only_block_is_not_categorized_as_answer_block():
+    """Blocking only a training crawler (GPTBot) must not show up in
+    blocked_answer_crawlers -- the whole point of the split."""
+    body = "User-agent: GPTBot\nDisallow: /\n\nUser-agent: *\nDisallow:\n"
+    respx.get("https://example.com/robots.txt").mock(
+        return_value=Response(200, text=body)
+    )
+    respx.get("https://example.com/sitemap.xml").mock(return_value=Response(404))
+
+    result = check_robots_txt("https://example.com")
+
+    assert result["blocked_training_crawlers"] == ["GPTBot"]
+    assert result["blocked_answer_crawlers"] == []
+
+
+@respx.mock
+def test_answer_only_block_is_categorized_as_answer_block():
+    """Blocking only an answer/search crawler (OAI-SearchBot) must show up
+    in blocked_answer_crawlers and not blocked_training_crawlers."""
+    body = "User-agent: OAI-SearchBot\nDisallow: /\n\nUser-agent: *\nDisallow:\n"
+    respx.get("https://example.com/robots.txt").mock(
+        return_value=Response(200, text=body)
+    )
+    respx.get("https://example.com/sitemap.xml").mock(return_value=Response(404))
+
+    result = check_robots_txt("https://example.com")
+
+    assert result["blocked_answer_crawlers"] == ["OAI-SearchBot"]
+    assert result["blocked_training_crawlers"] == []
+
+
+def test_ai_crawlers_is_the_union_of_training_and_answer_crawlers():
+    """Back-compat contract: AI_CRAWLERS must still be usable by any
+    caller that doesn't care about the training/answer distinction."""
+    assert set(AI_CRAWLERS) == set(_TRAINING_CRAWLERS) | set(_ANSWER_CRAWLERS)
+    assert len(AI_CRAWLERS) == len(_TRAINING_CRAWLERS) + len(_ANSWER_CRAWLERS)
 
 
 @respx.mock

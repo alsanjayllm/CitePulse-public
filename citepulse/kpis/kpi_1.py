@@ -1,5 +1,6 @@
-"""KPI #1 -- AI Crawl Accessibility. A "Foundation" KPI: field evidence
-from an audit run against a competitor AEO tool showed AI-crawler
+"""KPI #1 -- AI Crawl Accessibility. A v2 "Foundation" KPI: field
+evidence from an audit run against otterly.ai, a competitor AEO tool,
+showed AI-crawler
 accessibility is a headline feature in this competitive space --
 CitePulse measured none of it before this.
 
@@ -10,12 +11,22 @@ citepulse.audit.run_audit() can call every entry in
 _IMPLEMENTED_KPI_RUNNERS uniformly. `on_progress` *is* used below.
 
 Tiering (0-3), decided here rather than in the evidence function (which
-stays a plain "what did we observe" fact-gatherer):
+stays a plain "what did we observe" fact-gatherer). Training vs.
+answer/search crawlers (see citepulse/crawler/robots_txt.py's
+_TRAINING_CRAWLERS/_ANSWER_CRAWLERS) are weighted differently, not just
+counted: blocking an answer/search crawler directly removes this site
+from citation eligibility for the AI product it powers *today*, while
+blocking a training-only crawler has no such immediate effect (it only
+affects some future model). So any blocked answer/search crawler alone
+is enough to drop to critical, even if every training crawler is still
+allowed and even if most crawlers overall are still allowed:
   3 -- no AI crawler blocked AND sitemap.xml present.
   2 -- no AI crawler blocked, but no sitemap.xml.
-  1 -- some but not all tested AI crawlers blocked.
-  0 -- every tested AI crawler blocked (a blanket disallow for AI
-       crawlers specifically, or under a wildcard User-agent: * block).
+  1 -- one or more training-only crawlers blocked, but no answer/search
+       crawler is blocked.
+  0 -- one or more answer/search crawlers blocked (this also covers the
+       old "every tested AI crawler blocked" case, since blocking
+       everything necessarily blocks the answer/search crawlers too).
 """
 
 from collections.abc import Callable
@@ -75,14 +86,20 @@ def run(
         return result, None
 
     blocked = check["blocked_crawlers"]
-    total_checked = len(check["all_crawlers_checked"])
+    blocked_answer = check["blocked_answer_crawlers"]
     sitemap_present = check["sitemap_present"]
 
     if not blocked:
         tier = 3 if sitemap_present else 2
-    elif len(blocked) >= total_checked:
+    elif blocked_answer:
+        # Any blocked answer/search crawler is a critical gap on its own,
+        # regardless of how many training-only crawlers are also (or
+        # aren't) blocked -- it directly removes citation eligibility now.
         tier = 0
     else:
+        # Only training-only crawlers are blocked -- a real gap, but one
+        # tier less severe since it has no immediate effect on citation
+        # eligibility.
         tier = 1
 
     result = KPIResult(
@@ -108,21 +125,26 @@ def run(
         return result, None
 
     blocked_str = ", ".join(blocked) if blocked else "none"
+    blocked_answer_str = ", ".join(blocked_answer) if blocked_answer else "none"
 
     if tier == 0:
         text = render_template(
             1,
             "tier_0",
-            {"blocked_crawlers": blocked_str, "robots_txt_url": robots_txt_url},
+            {
+                "blocked_crawlers": blocked_str,
+                "blocked_answer_crawlers": blocked_answer_str,
+                "robots_txt_url": robots_txt_url,
+            },
         )
-        title = "All tested AI crawlers blocked in robots.txt"
+        title = "AI answer/search crawler blocked in robots.txt"
     elif tier == 1:
         text = render_template(
             1,
             "tier_1",
             {"blocked_crawlers": blocked_str, "robots_txt_url": robots_txt_url},
         )
-        title = "Some AI crawlers blocked in robots.txt"
+        title = "AI training crawler blocked in robots.txt"
     else:  # tier == 2: no crawler blocked, but no sitemap.xml
         text = render_template(1, "tier_2", {"robots_txt_url": robots_txt_url})
         title = "No sitemap.xml found"

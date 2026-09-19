@@ -1,7 +1,7 @@
 """KPI #1 (AI Crawl Accessibility). Checks whether known AI crawlers are
 explicitly disallowed in /robots.txt, plus /sitemap.xml presence as a
 secondary signal -- deliberately not a full sitemap-vs-llms.txt coverage
-diff, which is deferred to a later phase.
+diff (deferred to a later phase).
 
 Reuses the shared `citepulse/fetch_diagnostics.py` layer (the same one
 `citation_correctness.py` already uses) instead of a new ad hoc httpx
@@ -28,17 +28,38 @@ from citepulse import measurement_status as ms
 # Known AI crawlers worth checking for explicitly -- not an exhaustive
 # list of every bot that might ever fetch a page, but the named crawlers
 # an AEO audit reader would actually recognize and care about.
-AI_CRAWLERS = (
-    "GPTBot",
-    "ChatGPT-User",
-    "ClaudeBot",
-    "anthropic-ai",
-    "Google-Extended",
-    "CCBot",
-    "PerplexityBot",
-    "Bytespider",
-    "Applebot-Extended",
+#
+# Split into two categories because blocking one has a very different
+# consequence than blocking the other (this is KPI #1's whole reason for
+# existing): a *training* crawler only ingests
+# content to improve some future model and has no immediate effect on
+# whether this site gets cited today, while an *answer/search* crawler is
+# what an AI product fetches live to actually answer a user's question --
+# blocking it directly removes this site from citation eligibility right
+# now. User-agent strings verified against each vendor's own published
+# crawler documentation (OpenAI, Anthropic, Perplexity) rather than
+# guessed.
+_TRAINING_CRAWLERS = (
+    "GPTBot",  # OpenAI: trains future GPT models.
+    "Google-Extended",  # Google: opts out of Gemini/Bard training data.
+    "CCBot",  # Common Crawl: widely reused as AI training data.
+    "ClaudeBot",  # Anthropic: trains future Claude models (current UA).
+    "anthropic-ai",  # Anthropic: legacy training-data-collection UA.
+    "Bytespider",  # ByteDance: trains its own models.
+    "Applebot-Extended",  # Apple: opts out of Apple Intelligence training.
 )
+
+_ANSWER_CRAWLERS = (
+    "OAI-SearchBot",  # OpenAI: indexes pages ChatGPT search can cite.
+    "PerplexityBot",  # Perplexity: indexes pages its answers cite.
+    "ChatGPT-User",  # OpenAI: live fetch when a user's question needs a page.
+    "Claude-SearchBot",  # Anthropic: crawls to support Claude's search feature.
+)
+
+# Back-compat/combined export for any caller that only wants "the full
+# list of AI crawlers this check tests for" without caring which category
+# each one falls into (e.g. reporting the total count tested).
+AI_CRAWLERS = _TRAINING_CRAWLERS + _ANSWER_CRAWLERS
 
 _DEFINITIVE_PRESENT = (fd.SUCCESS, fd.REDIRECTED_SUCCESS, fd.CONTENT_EMPTY)
 
@@ -164,6 +185,20 @@ def _check_ai_crawlers(groups: list[dict]) -> tuple[list[str], list[str]]:
     return blocked, allowed
 
 
+def _partition_by_category(crawlers: list[str]) -> tuple[list[str], list[str]]:
+    """Splits a list of crawler names (as found in `blocked_crawlers`/
+    `allowed_crawlers`) into (training, answer) subsets, by
+    case-insensitive membership in _TRAINING_CRAWLERS/_ANSWER_CRAWLERS --
+    matching _resolve_group_for_agent's own case-insensitive comparison so
+    a crawler name is never silently dropped from both buckets over a
+    casing mismatch."""
+    training_lower = {c.lower() for c in _TRAINING_CRAWLERS}
+    answer_lower = {c.lower() for c in _ANSWER_CRAWLERS}
+    training = [c for c in crawlers if c.lower() in training_lower]
+    answer = [c for c in crawlers if c.lower() in answer_lower]
+    return training, answer
+
+
 def check_robots_txt(
     base_url: str,
     timeout: float = 10.0,
@@ -179,8 +214,15 @@ def check_robots_txt(
     - `blocked_crawlers`/`allowed_crawlers`: only populated for a measured
       result; both empty for a not-determined one (nothing was actually
       confirmed either way).
-    - `all_crawlers_checked`: the full AI_CRAWLERS list, for the report to
-      show what was actually tested.
+    - `blocked_training_crawlers`/`blocked_answer_crawlers`: `blocked_crawlers`
+      partitioned by category (see the module-level comment above
+      _TRAINING_CRAWLERS/_ANSWER_CRAWLERS) -- lets a caller weight a
+      blocked answer/search crawler (removes citation eligibility now)
+      differently from a blocked training-only crawler (kpi_1.py does
+      exactly this). Also empty for a not-determined result.
+    - `all_crawlers_checked`/`training_crawlers_checked`/
+      `answer_crawlers_checked`: the full lists, for the report to show
+      what was actually tested and how it's categorized.
     - `sitemap_present`/`sitemap_url`/`sitemap_classification`: the
       secondary sitemap.xml signal -- its own outcome never changes
       `measurement_status` (see module docstring)."""
@@ -205,6 +247,8 @@ def check_robots_txt(
     base_fields = {
         "checked_url": robots_url,
         "all_crawlers_checked": list(AI_CRAWLERS),
+        "training_crawlers_checked": list(_TRAINING_CRAWLERS),
+        "answer_crawlers_checked": list(_ANSWER_CRAWLERS),
         "sitemap_present": sitemap_present,
         "sitemap_url": sitemap_url,
         "sitemap_classification": sitemap_result["classification"],
@@ -214,6 +258,7 @@ def check_robots_txt(
         body = robots_result.get("text") or ""
         groups = _parse_robots_txt(body)
         blocked, allowed = _check_ai_crawlers(groups)
+        blocked_training, blocked_answer = _partition_by_category(blocked)
         return {
             "measurement_status": ms.MEASURED,
             "diagnostic": None,
@@ -221,6 +266,8 @@ def check_robots_txt(
             "url": robots_result["final_url"],
             "blocked_crawlers": blocked,
             "allowed_crawlers": allowed,
+            "blocked_training_crawlers": blocked_training,
+            "blocked_answer_crawlers": blocked_answer,
             **base_fields,
         }
 
@@ -234,6 +281,8 @@ def check_robots_txt(
             "url": None,
             "blocked_crawlers": [],
             "allowed_crawlers": list(AI_CRAWLERS),
+            "blocked_training_crawlers": [],
+            "blocked_answer_crawlers": [],
             **base_fields,
         }
 
@@ -246,6 +295,8 @@ def check_robots_txt(
         "url": None,
         "blocked_crawlers": [],
         "allowed_crawlers": [],
+        "blocked_training_crawlers": [],
+        "blocked_answer_crawlers": [],
         "fetch_detail": robots_result.get("error_message"),
         **base_fields,
     }
