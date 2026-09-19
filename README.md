@@ -82,7 +82,7 @@ category leaders in 2026 buyer comparisons: [Profound](https://www.tryprofound.c
 | Starting price | **$0** (local Ollama) | $99/mo (ChatGPT-only tier) | $295/mo | $250/mo |
 | Data leaves your machine? | No — nothing sent to a third party by default | Yes | Yes | Yes |
 | Open source | Yes (MIT) | No | No | No |
-| AI engines tracked | ChatGPT, Perplexity, Gemini, or any OpenRouter model, plus a free local model | ChatGPT, Perplexity, Gemini, Google AI Overviews | ChatGPT, Perplexity, Gemini, Google AI Overviews | ChatGPT, Perplexity, Gemini, Google AI Overviews |
+| AI engines tracked | ChatGPT, Perplexity, Gemini, or any OpenRouter model, plus a free local model* | ChatGPT, Perplexity, Gemini, Google AI Overviews | ChatGPT, Perplexity, Gemini, Google AI Overviews | ChatGPT, Perplexity, Gemini, Google AI Overviews |
 | Citation rate / AI share of voice | Yes | Yes | Yes | Yes |
 | llms.txt / AI crawl accessibility | Yes | Partial | Partial | Yes (AXP) |
 | AI agent task-completion testing (can an agent actually *use* your site, not just cite it) | Yes | No | No | No |
@@ -94,6 +94,18 @@ Pricing and feature details for Profound, AthenaHQ, and Scrunch AI are
 publicly listed and change frequently — see each vendor's site for current
 numbers. CitePulse's own numbers above are the only ones we control, and
 they're pulled straight from this repo.
+
+\* See the caveat below — this is a proxy measurement by default, not a
+live product query.
+
+**A note on "AI engines tracked."** By default, Citation Rate, AI Share
+of Voice, and Citation Correctness are computed by a local model (or an
+OpenRouter cloud model, if configured) synthesizing an answer over live
+web-search results — this is a proxy for AI-answer-engine behavior, not a
+live query to ChatGPT, Perplexity, Gemini, or Copilot's own products.
+Every report discloses this near its Scorecard and in its Limitations
+section. Closing this gap with real multi-engine live querying is
+tracked as a future initiative.
 
 ## System requirements
 
