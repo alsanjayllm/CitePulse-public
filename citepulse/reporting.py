@@ -426,6 +426,12 @@ _HTML_TEMPLATE = """\
   .page-line { height: .45rem; background: var(--border); border-radius: 3px; opacity: .8; }
   .page-line.short { width: 55%; }
 
+  /* -- 2b. Methodology callout ------------------------------------------*/
+  .methodology-callout { border: 1px solid var(--border); border-left: 4px solid #3B82F6;
+                          border-radius: 8px; padding: .75rem 1rem; margin-bottom: 1.5rem;
+                          background: var(--bg-card); font-size: .85rem; color: var(--text); }
+  .methodology-callout strong { color: #93C5FD; }
+
   /* -- 3. KPI Scorecard -------------------------------------------------*/
   .scorecard-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
   .kpi-card { border: 1px solid var(--border); border-top: 4px solid var(--border);
@@ -546,6 +552,10 @@ _HTML_TEMPLATE = """\
     {% endif %}
   </div>
 </section>
+
+{% if methodology_callout %}
+<div class="methodology-callout"><strong>Methodology:</strong> {{ methodology_callout }}</div>
+{% endif %}
 
 <section>
   <p class="eyebrow">Scorecard</p>
@@ -1586,13 +1596,13 @@ def _segment_label(segment: str) -> str:
 
 
 def _ai_visibility_data(results: list[KPIResult]) -> dict | None:
-    """Pulls #22 (Citation Rate) and #24 (AI Share of Voice)'s
+    """Phase 3: pulls #22 (Citation Rate) and #24 (AI Share of Voice)'s
     per-segment breakdown (citepulse.kpis.kpi_22/_24's `segment_breakdown`
     raw_data key) into one shape both report renderers can walk -- the
-    report's "prompt corpus summary by segment".
+    enhancement spec's "prompt corpus summary by segment" (section 3.2/7.4).
     Returns None when neither KPI has a non-empty breakdown to show (e.g.
-    a run predating segment breakdowns, or a run where check_citation_rate
-    never got even an unconfirmed probe)."""
+    a run predating Phase 3, or a run where check_citation_rate never got
+    even an unconfirmed probe)."""
     citation_result = next(
         (r for r in results if r.kpi_id == _CITATION_RATE_KPI_ID), None
     )
@@ -1789,14 +1799,15 @@ def _clean_final_excerpt(text: str | None) -> str | None:
 def _task_results_data(
     results: list[KPIResult], evidence_by_task: dict[str, list[Evidence]] | None = None
 ) -> list[dict] | None:
-    """Builds the report's per-task 'Task Results' table.
+    """Enhancement spec section 7.3's per-task 'Task Results' table.
     Reads from whichever of KPI #48 (Task Completion Success Rate) or #58
     (Interaction Readiness) has a populated raw_data["results"] list --
     both are built on the same shared task-readiness trace, so #48 is
-    preferred and #58 is only a fallback for the rare case where #48 is
-    unavailable but #58 somehow isn't.
+    preferred and #58 is only a fallback for
+    the rare case where #48 is unavailable but #58 somehow isn't.
 
-    Deliberately excludes a "preconditions" field -- CitePulse's task
+    Deliberately excludes a "preconditions" field even though the
+    original enhancement spec's task schema has one -- CitePulse's task
     model has no such concept, so nothing is fabricated to fill it.
 
     Includes a cleaned/shortened final_page_excerpt (via
@@ -2503,6 +2514,37 @@ def _build_markdown_toc(body: str) -> str | None:
     return "\n".join(lines)
 
 
+# Citation-family KPIs whose value is a local-model proxy over web-search
+# results, never a live query to a commercial answer engine -- shared by
+# render_methodology_callout below and render_limitations_section's own
+# (separately worded, test-pinned) citation-family caveat.
+_CITATION_FAMILY_KPI_IDS = {22, 24, 45, 62}
+
+
+def render_methodology_callout(data: dict) -> str | None:
+    """Visible top-of-report disclosure that Citation Rate (#22), AI Share
+    of Voice (#24), Citation Correctness (#45), and AI Share of Voice v2
+    (#62) are measured by this run's own model synthesizing an answer over
+    live web-search results, not a live query to ChatGPT/Perplexity/
+    Gemini/Copilot -- placed near the Scorecard (where these KPIs first
+    render) rather than only in the Limitations section at the bottom,
+    which a reader skimming the top of the report could easily miss.
+    Returns None when none of those KPIs ran this run."""
+    results = data.get("results") or []
+    if not any(r.kpi_id in _CITATION_FAMILY_KPI_IDS for r in results):
+        return None
+    run = data.get("run")
+    model = getattr(run, "model", None) if run is not None else None
+    model_note = f" {model}" if model else ""
+    return (
+        "Citation Rate, AI Share of Voice, and Citation Correctness are "
+        f"computed by a local{model_note} model synthesizing an answer "
+        "over live web-search results -- this is a proxy for AI-answer-"
+        "engine behavior, not a live query to ChatGPT, Perplexity, "
+        "Gemini, or Copilot."
+    )
+
+
 def render_markdown_report(data: dict) -> str:
     site, run, results = data["site"], data["run"], data["results"]
     findings_by_kpi = data["findings_by_kpi"]
@@ -2512,8 +2554,13 @@ def render_markdown_report(data: dict) -> str:
         f"Run: {run.id} | Status: {run.status} | Completed: {run.completed_at} | "
         f"CitePulse v{data.get('app_version', APP_VERSION)}",
         "",
-        render_executive_summary_markdown(data),
     ]
+    methodology_callout = render_methodology_callout(data)
+    if methodology_callout:
+        lines.append(f"> **Methodology:** {methodology_callout}")
+        lines.append("")
+    toc_insert_index = len(lines)
+    lines.append(render_executive_summary_markdown(data))
 
     # Action Plan: the actionable digest, placed right after the Executive
     # Summary and before every deep-dive section below -- a reader should
@@ -2870,12 +2917,11 @@ def render_markdown_report(data: dict) -> str:
     # Field-review item 7: a generated table of contents, built from the
     # report's own already-rendered `##` headings (not a second,
     # hand-maintained section list) so a long report is navigable without
-    # scrolling -- inserted right after the title/run-info line (index 0
-    # is the title, index 1 the "Run: ..." line, index 2 the blank line
-    # separating them from Executive Summary), before Executive Summary.
+    # scrolling -- inserted right after the title/run-info/blank line (and
+    # the methodology callout, when present), before Executive Summary.
     toc = _build_markdown_toc("\n".join(lines))
     if toc:
-        lines.insert(3, toc)
+        lines.insert(toc_insert_index, toc)
 
     return "\n".join(lines)
 
@@ -3096,12 +3142,14 @@ def render_html_report(data: dict) -> str:
     """Styled, print-friendly infographic HTML leave-behind for an
     executive reader -- same grounded `data` shape and verdict/ranking
     logic as the Markdown report, just a different presentation: a header
-    band, a verdict/browser-chrome hero row, a 5-card KPI scorecard, a
+    band, a verdict/browser-chrome hero row, a methodology callout (only
+    when a citation-family KPI ran this run -- see
+    render_methodology_callout), a 5-card KPI scorecard, a
     top-findings list (omitted when there are zero findings), a
     collapsible Run Manifest section (Phase 2; omitted for a run with no
-    persisted manifest), an AI Visibility by Segment section (omitted
-    when #22/#24 have no segment_breakdown to show), a Task
-    Results section (omitted when neither
+    persisted manifest), an AI Visibility by Segment section (Phase 3;
+    omitted when #22/#24 have no segment_breakdown to show), a Task
+    Results section (enhancement spec section 7.3; omitted when neither
     #48 nor #58 has a results list to show -- see _task_results_data),
     the Product & Audience Discovery section, and a vs. Previous Run
     comparison, in that order -- the same section order as
@@ -3292,6 +3340,7 @@ def render_html_report(data: dict) -> str:
             verdict_color, _VERDICT_ICON_BY_COLOR["gray"]
         ),
         brand_icon=_BRAND_ICON,
+        methodology_callout=render_methodology_callout(data),
         kpis=kpis,
         top_findings=top_findings,
         action_plan=action_plan,

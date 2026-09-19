@@ -18,6 +18,7 @@ from citepulse.reporting import (
     render_csv_report,
     render_json_report,
     render_limitations_section,
+    render_methodology_callout,
 )
 
 
@@ -279,6 +280,37 @@ def test_limitations_section_omits_citation_caveat_when_no_citation_kpi_ran():
         _limitations_data([r], run=_FakeRun("llama3.1:8b"))
     )
     assert "synthesizing answers over" not in text
+
+
+# --------------------------------------------------------------------------
+# render_methodology_callout (Phase 2: visible top-of-report disclosure,
+# not just the Limitations section at the bottom)
+# --------------------------------------------------------------------------
+
+
+def test_methodology_callout_present_when_citation_kpi_ran():
+    r = _result(22, value=90.0, sample_size=100, band="best_in_class")
+    text = render_methodology_callout(
+        _limitations_data([r], run=_FakeRun("llama3.1:8b"))
+    )
+    assert text is not None
+    assert "llama3.1:8b" in text
+    assert "not a live query to ChatGPT" in text
+
+
+def test_methodology_callout_none_when_no_citation_kpi_ran():
+    r = _result(46, value=3.0, sample_size=100, band="best_in_class")
+    text = render_methodology_callout(
+        _limitations_data([r], run=_FakeRun("llama3.1:8b"))
+    )
+    assert text is None
+
+
+def test_methodology_callout_omits_model_note_when_run_has_no_model():
+    r = _result(24, value=50.0, sample_size=100, band="needs_improvement")
+    text = render_methodology_callout(_limitations_data([r], run=None))
+    assert text is not None
+    assert "None" not in text
 
 
 # --------------------------------------------------------------------------

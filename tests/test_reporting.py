@@ -310,7 +310,7 @@ def test_build_kpi_trend_builds_series_across_completed_runs_oldest_first(sessio
 
 def test_build_kpi_trend_annotates_points_and_flags_multi_model_series(session):
     """Verified gap: a trend silently plotted points from different
-    models on one continuous line with no annotation (larkspurgroup.example,
+    models on one continuous line with no annotation (dieterengroup.com,
     gemma2:9b vs. an earlier llama3.1:8b run). Each point must carry the
     model that produced it, and a series spanning more than one model
     must be flagged."""
@@ -702,6 +702,99 @@ def test_markdown_report_shows_executive_summary_before_first_kpi_section(sessio
     assert "High risk" in report
     assert "Not cited by AI answers" in report
     assert "1 of 1 KPIs measured" in report
+
+
+def test_markdown_report_shows_methodology_callout_before_executive_summary(session):
+    site = Site(url="https://example.com")
+    session.add(site)
+    session.commit()
+    session.refresh(site)
+
+    run = AuditRun(site_id=site.id, status="completed", model="llama3.1:8b")
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+
+    session.add(
+        KPIResult(
+            audit_run_id=run.id,
+            kpi_id=22,
+            kpi_name="Citation Rate",
+            value=10.0,
+            unit="percent",
+            band="critical",
+        )
+    )
+    session.commit()
+
+    data = gather_report_data(session, run.id)
+    report = render_markdown_report(data)
+
+    callout_pos = report.index("Methodology:")
+    summary_pos = report.index("## Executive Summary")
+    assert callout_pos < summary_pos
+    assert "llama3.1:8b" in report
+    assert "not a live query to ChatGPT" in report
+
+
+def test_markdown_report_omits_methodology_callout_when_no_citation_kpi_ran(session):
+    site = Site(url="https://example.com")
+    session.add(site)
+    session.commit()
+    session.refresh(site)
+
+    run = AuditRun(site_id=site.id, status="completed", model="llama3.1:8b")
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+
+    session.add(
+        KPIResult(
+            audit_run_id=run.id,
+            kpi_id=46,
+            kpi_name="llms.txt",
+            value=3.0,
+            unit="tier",
+            band="best_in_class",
+        )
+    )
+    session.commit()
+
+    data = gather_report_data(session, run.id)
+    report = render_markdown_report(data)
+
+    assert "Methodology:" not in report
+
+
+def test_html_report_shows_methodology_callout(session):
+    site = Site(url="https://example.com")
+    session.add(site)
+    session.commit()
+    session.refresh(site)
+
+    run = AuditRun(site_id=site.id, status="completed", model="llama3.1:8b")
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+
+    session.add(
+        KPIResult(
+            audit_run_id=run.id,
+            kpi_id=24,
+            kpi_name="AI Share of Voice",
+            value=25.0,
+            unit="percent",
+            band="needs_improvement",
+        )
+    )
+    session.commit()
+
+    data = gather_report_data(session, run.id)
+    report = render_html_report(data)
+
+    assert 'class="methodology-callout"' in report
+    assert "llama3.1:8b" in report
+    assert "not a live query to ChatGPT" in report
 
 
 def test_html_report_reflects_same_verdict_and_top_finding_as_markdown(session):
@@ -2149,7 +2242,7 @@ def test_markdown_and_html_reports_render_vs_previous_run_section(session):
     # regression_rows() must use the same format_kpi_value()/
     # _format_value_unit() human phrasing every other renderer uses, not
     # a raw f-string splicing the unit code straight into report prose
-    # (a real audited site's report was confirmed showing "-19.7
+    # (a real Stripe.com report was confirmed showing "-19.7
     # score_0_to_100" before this fix).
     assert "+30.0%" in markdown_report
     assert "percent" not in markdown_report
@@ -2164,7 +2257,7 @@ def test_regression_rows_delta_str_uses_human_unit_phrasing_not_raw_code():
     "-19.7 score_0_to_100", "+0.0 score_0_to_3") instead of going through
     the same format_kpi_value()/_format_value_unit() human phrasing every
     other renderer in this file already uses (PR #45) -- confirmed live
-    in a real audited site's report "vs. Previous Run" section. This
+    in a real Stripe.com report's "vs. Previous Run" section. This
     asserts delta_str never leaks a raw unit-code substring and instead
     reads as a human-phrased delta, sign included, for both a
     percent-based KPI and a 0-3-scale KPI."""
