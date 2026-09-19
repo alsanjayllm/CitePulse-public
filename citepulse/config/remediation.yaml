@@ -67,6 +67,49 @@
     sitemap.xml is published, giving AI crawlers both open access and a
     direct index of this site's key pages.
 
+"3":
+  # Schema Markup Coverage -- tiered 0 (no JSON-LD found at all) to 3
+  # (best-in-class: at least one high-leverage schema.org type present
+  # with every required field). Tier 1 is "present but low-value type
+  # only" (e.g. WebSite/BreadcrumbList, no Organization/Article/Product/
+  # FAQPage/HowTo); tier 2 is "a high-leverage type is present but missing
+  # a required field" (or every JSON-LD block failed to parse). Only
+  # tiers 0-2 produce a Finding; tier 3 produces none.
+  tier_0: >-
+    No JSON-LD structured data (a <script type="application/ld+json">
+    block) was found at {checked_url}.|||This likely means AI answer
+    engines and rich-result features have no machine-readable summary of
+    what this page actually is -- they're left to infer it from
+    unstructured HTML alone -- add a JSON-LD block for whichever
+    schema.org type best matches this page's content (Organization on the
+    homepage, Article on a blog/news post, Product on a product page,
+    FAQPage on an FAQ, HowTo on a guide) to test whether that changes
+    citation/rich-result behavior.
+  tier_1: >-
+    {page_url} has JSON-LD structured data, but only a low-value or
+    irrelevant type ({low_value_types}) -- none of the high-leverage types
+    (Organization, Article, Product, FAQPage, HowTo).|||An agent parsing
+    this page can likely tell some structured data exists but not get a
+    real, citable summary of the page's own content from it -- add a
+    JSON-LD block for whichever high-leverage type best matches this
+    page, and re-check whether Schema Markup Coverage moves to a higher
+    tier.
+  tier_2: >-
+    {page_url} has {schema_type} structured data, but it's missing
+    {missing_fields}.|||The missing field(s) are likely what keeps this
+    from being a fully usable, citable summary for an AI agent or rich
+    result -- add {missing_fields} to the {schema_type} block, then
+    re-check whether this moves Schema Markup Coverage to best-in-class.
+  # Best-in-class (tier 3): no gap, so no Finding is ever created for this
+  # -- see citepulse.kpis.kpi_3's tier == 3 branch. Rendered directly into
+  # KPIResult.raw_data["pass_evidence_text"] instead, a single factual
+  # sentence with no interpretation/hypothesis split (there's nothing to
+  # fix).
+  tier_3: >-
+    {page_url} has valid {schema_type} structured data, giving AI answer
+    engines and rich-result features a machine-readable summary of this
+    page's content.
+
 "46":
   # llms.txt Readiness -- tiered 0 (absent) to 3 (best-in-class: has both
   # H2 section headers and at least one Markdown link). Only tiers 0-2

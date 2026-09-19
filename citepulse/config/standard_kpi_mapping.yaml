@@ -15,6 +15,15 @@
   - metric: "Technical debt index (score)"
     source: spacelift
 
+"3": # Schema Markup Coverage
+  # Inputs/oKPIS.xlsx is local-only (not committed) and wasn't present in
+  # this environment to re-check for a more specific row -- reuses the
+  # same sourced "Technical debt index" mapping already cited for #1/#46,
+  # the other two Foundation-category KPIs, rather than inventing a new
+  # entry.
+  - metric: "Technical debt index (score)"
+    source: spacelift
+
 "22": # Citation Rate
   - metric: "Market share (%)"
     source: altexsoft

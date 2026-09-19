@@ -11,12 +11,19 @@ Optimization) audit tool. It runs entirely on your own machine — no
 account, no API key, no data sent to a third party — using a local Ollama
 model instead of a paid LLM API by default.
 
-**Status: v1 complete, v2 in progress.** Six KPIs are wired end to end
-today: llms.txt Readiness, AI Crawl Accessibility, Citation Rate, AI
-Share of Voice, Task Completion Success Rate, and Interaction Readiness —
+**Status: v1 complete, v2 in progress.** Seven KPIs are wired end to end
+today: llms.txt Readiness, AI Crawl Accessibility, Schema Markup
+Coverage, Citation Rate, AI Share of Voice, Task Completion Success
+Rate, and Interaction Readiness —
 plus per-run/multi-model comparison (local Ollama or an optional
 OpenRouter cloud model), a KPI subset picker, an N-run trend view, and a
 "v1 core" zip-and-run Windows build for a locked-down corporate machine.
+A product-loop review cycle (11 real audit reports checked against AEO
+best practice) has since shipped Schema Markup Coverage (is the site's
+JSON-LD structured data present *and* structurally valid for a
+high-leverage type like Organization, Article, Product, FAQPage, or
+HowTo), plus a handful of report-correctness and
+methodology-transparency fixes.
 Every KPI follows the same design principle: **never fabricate a score**.
 When something can't be measured (a blocked fetch, a rate-limited
 request, an ambiguous LLM answer), CitePulse reports "not determined,"

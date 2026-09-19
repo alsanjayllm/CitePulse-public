@@ -26,7 +26,17 @@ from citepulse.evidence_store import (
     persist_task_readiness_evidence,
 )
 from citepulse.kpi_catalog import KPI_CATALOG
-from citepulse.kpis import kpi_1, kpi_22, kpi_24, kpi_45, kpi_46, kpi_48, kpi_58, kpi_62
+from citepulse.kpis import (
+    kpi_1,
+    kpi_3,
+    kpi_22,
+    kpi_24,
+    kpi_45,
+    kpi_46,
+    kpi_48,
+    kpi_58,
+    kpi_62,
+)
 from citepulse.manifest import build_manifest
 from citepulse.models import AuditRun, AuditRunModel
 from citepulse.reporting import compute_verdict, rank_findings
@@ -45,6 +55,7 @@ logger = logging.getLogger("citepulse.audit")
 # does the real work, the other hits the cache.
 _IMPLEMENTED_KPI_RUNNERS = [
     kpi_1.run,
+    kpi_3.run,
     kpi_46.run,
     kpi_22.run,
     kpi_24.run,
@@ -57,7 +68,7 @@ _IMPLEMENTED_KPI_RUNNERS = [
 # as a separate list (not zipped into the runners list itself) so a test
 # that monkeypatches _IMPLEMENTED_KPI_RUNNERS with a shorter fake list
 # still zips cleanly (against a prefix of these ids) instead of raising.
-_KPI_RUNNER_IDS = [1, 46, 22, 24, 45, 62, 48, 58]
+_KPI_RUNNER_IDS = [1, 3, 46, 22, 24, 45, 62, 48, 58]
 # Guards the two lists above against silently drifting out of sync (e.g. a
 # future KPI appended to one list but not the other) -- zip() truncates to
 # the shorter list rather than erroring, which would otherwise mean a new

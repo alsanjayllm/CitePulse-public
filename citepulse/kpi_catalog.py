@@ -1,6 +1,7 @@
-"""The v1 KPIs, curated for value proposition and differentiation. KPI ids
-are stable identifiers, not a dense 1..N sequence -- gaps are intentional
-and reserved for KPIs not yet implemented.
+"""The 5 v1 KPIs, curated from ABAEO's 71-KPI catalog for value proposition
+and differentiation (see the CitePulse plan's "KPI bundle" section). Ids
+match ABAEO's own numbering so a reader familiar with ABAEO can cross
+reference directly; CitePulse itself never computes the other 66.
 """
 
 from dataclasses import dataclass
@@ -17,12 +18,24 @@ class KPIDefinition:
 
 
 KPI_CATALOG: dict[int, KPIDefinition] = {
-    # "Foundation" KPI (cheap, lowest differentiation) -- added after field
-    # evidence (an audit run against a competitor AEO tool) showed AI-crawler
-    # accessibility is a headline feature in this competitive space.
+    # v2 "Foundation" KPI (cheap, lowest differentiation) -- added after
+    # field evidence (an audit run against otterly.ai, a competitor AEO
+    # tool) showed AI-crawler accessibility is a headline feature in this
+    # competitive space.
     1: KPIDefinition(
         id=1,
         name="AI Crawl Accessibility",
+        category="foundation",
+        unit="score_0_to_3",
+        higher_is_better=True,
+        evidence_source="crawl",
+    ),
+    # v2 "Foundation" KPI, Phase 5 of the 18 Sept 2026 product-loop review
+    # cycle -- the most-cited gap across all four field-review agents, and
+    # the last remaining Foundation roadmap item.
+    3: KPIDefinition(
+        id=3,
+        name="Schema Markup Coverage",
         category="foundation",
         unit="score_0_to_3",
         higher_is_better=True,
