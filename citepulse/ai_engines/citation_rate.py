@@ -13,8 +13,10 @@ that into a competitive, position/frequency-weighted score; #22 ignores
 it entirely. The reusable primitive both KPIs build on is
 citepulse.ai_engines.ollama.
 
-Prompt corpus expansion: the prompt corpus is segmented into six intent
-categories -- category discovery, capability, comparison, purchase, implementation,
+Phase 3 (prompt corpus expansion): the prompt corpus is segmented into
+the six intent categories from the enhancement spec (docs/Prompt for
+Claude Code CitePulse Enhancement Specification.txt, section 3.2/5) --
+category discovery, capability, comparison, purchase, implementation,
 brand navigation -- each with up to 3 parameterized templates (see
 _SEGMENT_TEMPLATES). `citepulse.settings.citation_rate_max_prompts`
 bounds how many of those (round-robin across segments, so a smaller cap
@@ -39,8 +41,8 @@ corpus that's already an honest, meaningful improvement over the old
 this company sells" signal than a meta description even without that
 structured segmentation, so it's still worth threading through.
 
-Four extra AI-visibility metrics: alongside citation_rate_percent (#22)
-and the share-of-voice score (#24,
+Phase 6 (four extra AI-visibility metrics, enhancement spec section 3.2):
+alongside citation_rate_percent (#22) and the share-of-voice score (#24,
 computed in kpis/kpi_24.py from this module's domain_mentions), this
 module also computes -- per confirmed probe -- the signal for
 mention_rate, recommendation_rate, citation_quality_score, and
@@ -74,11 +76,7 @@ from urllib.parse import urlparse
 from uuid import UUID
 
 from citepulse.ai_engines.provider import ask_with_retry
-from citepulse.company_profile import (
-    infer_brand_name_from_profile,
-    is_plausible_brand_name,
-    is_real_profile,
-)
+from citepulse.company_profile import is_real_profile
 from citepulse.crawler.homepage import fetch_homepage_meta
 from citepulse.crawler.search import search
 from citepulse.models import PromptItem
@@ -150,11 +148,93 @@ _ENGLISH_STOPWORDS = {
 _SHORT_PHRASE_WORD_LIMIT = 6
 _TOPIC_MAX_LEN = 120
 
-# Brand-name plausibility (length floor + ISO-639-1 language-code
-# rejection, for the language-interstitial-title false positive e.g. a
-# bare "EN"/"NL"/"DE") now lives in citepulse.company_profile as
-# is_plausible_brand_name, shared with task_readiness/task_generator.py's
-# identical need -- imported above rather than duplicated here.
+# A candidate brand name shorter than this, or matching an ISO 639-1
+# language code, is almost never a real brand -- it's far more likely a
+# language-interstitial page's title (e.g. a bare "EN"/"NL"/"DE"), which
+# _infer_brand_name below must reject rather than accept verbatim.
+_MIN_BRAND_NAME_LEN = 3
+_ISO_639_1_CODES = frozenset(
+    """
+    aa ab ae af ak am an ar as av ay az
+    ba be bg bh bi bm bn bo br bs
+    ca ce ch co cr cs cu cv cy
+    da de dv dz
+    ee el en eo es et eu
+    fa ff fi fj fo fr fy
+    ga gd gl gn gu gv
+    ha he hi ho hr ht hu hy hz
+    ia id ie ig ii ik io is it iu
+    ja jv
+    ka kg ki kj kk kl km kn ko kr ks ku kv kw ky
+    la lb lg li ln lo lt lu lv
+    mg mh mi mk ml mn mr ms mt my
+    na nb nd ne ng nl nn no nr nv ny
+    oc oj om or os
+    pa pi pl ps pt
+    qu
+    rm rn ro ru rw
+    sa sc sd se sg si sk sl sm sn so sq sr ss st su sv sw
+    ta te tg th ti tk tl tn to tr ts tt tw ty
+    ug uk ur uz
+    ve vi vo
+    wa wo
+    xh
+    yi yo
+    za zh zu
+    """.split()
+)
+
+
+def _is_plausible_brand_name(candidate: str) -> bool:
+    stripped = candidate.strip()
+    if len(stripped) < _MIN_BRAND_NAME_LEN:
+        return False
+    return stripped.lower() not in _ISO_639_1_CODES
+
+
+# company_profile is a 1-2 sentence LLM summary of "what this company
+# sells and who its customer is" (citepulse.company_profile's own system
+# prompt) -- it's never guaranteed to open with the brand name itself, so
+# a plain first-word extraction would just trade one fragile source (a
+# homepage <title>) for another: a profile like "This company provides
+# banking and insurance..." would otherwise yield "This" as brand_name,
+# corrupting every probe exactly like the original bug, just via a
+# different source. Reject the common generic sentence-openers a
+# brand-less profile is likely to start with, and require the candidate
+# to look like a proper noun (capitalized) -- a real brand name almost
+# always is, and a genuine profile that fails this (e.g. one deliberately
+# starting with a lowercase word) simply falls through to the
+# title/domain steps of the chain instead of risking a wrong guess.
+_GENERIC_PROFILE_LEADING_WORDS = {
+    "a",
+    "an",
+    "the",
+    "this",
+    "that",
+    "these",
+    "those",
+    "it",
+    "its",
+    "they",
+    "we",
+    "our",
+    "company",
+    "business",
+    "brand",
+    "site",
+    "website",
+    "provider",
+    "platform",
+}
+
+
+def _looks_like_company_profile_brand_name(candidate: str) -> bool:
+    stripped = candidate.strip()
+    if not _is_plausible_brand_name(stripped):
+        return False
+    if stripped.lower() in _GENERIC_PROFILE_LEADING_WORDS:
+        return False
+    return stripped[0].isupper()
 
 
 # Abbreviations whose trailing "." must not be treated as a sentence
@@ -210,14 +290,28 @@ def _first_sentence(text: str) -> str:
 def _clean_topic(text: str) -> str:
     # A meta description/title is often a full marketing sentence, not a
     # short noun phrase -- keep only the first sentence so "What is
-    # {topic}?" reads as a question rather than a run-on.
+    # {topic}?" reads as a question rather than a run-on. Real Shell
+    # Belgium/Adecco Spain/Informa audits (none had a Site.company_profile
+    # set, so all three fell through to this meta_description/title
+    # fallback) produced broken, grammatically-mangled prompts like "What
+    # is petroleum products and offers various services related to?" --
+    # this function used to only do first-sentence + hard character-length
+    # truncation, with no clause-boundary awareness, unlike the
+    # company_profile path (_short_topic_phrase). Routing through the
+    # shared _strip_topic_clause helper below closes that gap for both
+    # fallback branches without duplicating the clause logic at two call
+    # sites. This is a no-op for text _short_topic_phrase already reduced
+    # (the company_profile caller passes its output straight through
+    # here): a short noun phrase has no leading "<Subject> <verb>" clause
+    # or comma/relative-pronoun boundary left to strip.
     first_sentence = _first_sentence(text.split("\n", 1)[0])
-    if len(first_sentence) <= _TOPIC_MAX_LEN:
-        return first_sentence
+    phrase = _strip_topic_clause(first_sentence)
+    if len(phrase) <= _TOPIC_MAX_LEN:
+        return phrase
     # Trim to the last whole word inside the limit instead of cutting
     # mid-word.
-    truncated, _, _ = first_sentence[:_TOPIC_MAX_LEN].rpartition(" ")
-    return truncated or first_sentence[:_TOPIC_MAX_LEN]
+    truncated, _, _ = phrase[:_TOPIC_MAX_LEN].rpartition(" ")
+    return _strip_dangling_trailing_word(truncated or phrase[:_TOPIC_MAX_LEN])
 
 
 def _extract_domain(site_url: str) -> str:
@@ -246,6 +340,44 @@ def _candidate_domains(results, exclude_domain: str) -> list[str]:
     return _dedupe_preserve_order(d for d in domains if d and d != exclude_domain)
 
 
+def _relevant_competitor_domains(
+    prompts_tested: list[dict], curated_domains: list[str]
+) -> list[str]:
+    """The domain set #24/#62 treat as "competitors" for share-of-voice
+    scoring -- distinct from candidate_domains above, which is every
+    domain incidentally seen in a single probe's search results with no
+    curation at all (the #24 bug this replaces: Adecco, a staffing site,
+    benchmarked against an HR blog; Shell Belgium benchmarked against
+    Shell's own global parent site, both because they were the only
+    domain, or one of few, in one probe's results).
+
+    When the site tracks curated competitors (`citepulse competitor add`
+    -> active_competitor_domains), those take precedence over the
+    incidental SERP set entirely -- #24 and #62 then share the exact same
+    denominator whenever curation is available.
+
+    Otherwise, falls back to the incidental per-probe candidate_domains,
+    but only keeps a domain that showed up in the search results of at
+    least 2 distinct probes. A domain named in only one probe's results is
+    as likely one-off search noise (an unrelated blog, a news aggregator,
+    a parent/subsidiary site) as a real competitor, and this module never
+    invents an LLM relevance judgment call to tell the two apart --
+    corroboration across probes is the cheap, grounded signal available
+    instead.
+    """
+    if curated_domains:
+        return _dedupe_preserve_order(curated_domains)
+
+    probe_counts: dict[str, int] = {}
+    order: list[str] = []
+    for probe in prompts_tested:
+        for domain in _dedupe_preserve_order(probe.get("candidate_domains") or []):
+            if domain not in probe_counts:
+                order.append(domain)
+            probe_counts[domain] = probe_counts.get(domain, 0) + 1
+    return [d for d in order if probe_counts[d] >= 2]
+
+
 def _domain_mentions(text: str, domains: list[str]) -> dict[str, dict]:
     # Per domain: how many times it's named in the answer, and where it
     # first appears -- #24 turns this into a position/frequency-weighted
@@ -271,13 +403,13 @@ def _competitor_mentions(
     """Like _domain_mentions, but also credits a tracked competitor as
     mentioned when its human-readable name (e.g. "HSBC") appears in the
     text, not only its literal domain string (e.g. "hsbc.com"). Verified
-    bug: real northfieldbank.example audit data showed tracked_competitor_hits empty on
+    bug: real kbc.com audit data showed tracked_competitor_hits empty on
     every single probe despite 7 tracked competitors, because
     AI-generated prose almost never contains a bare domain -- it names
     the company, not its URL -- so domain-only matching structurally
     never fires. `names` maps domain -> competitor name (from
     Competitor.name); a domain with no entry, or whose name is too short/
-    implausible (see is_plausible_brand_name -- avoids false positives
+    implausible (see _is_plausible_brand_name -- avoids false positives
     on a short/generic competitor name), falls back to domain-only
     matching for that entry, same as before. `count` is the sum of domain
     and name occurrences, MINUS any name match that overlaps a domain
@@ -296,7 +428,7 @@ def _competitor_mentions(
         domain_spans = [m.span() for m in domain_pattern.finditer(lower_text)]
         positions = [start for start, _ in domain_spans]
         name = names.get(domain)
-        if name and is_plausible_brand_name(name):
+        if name and _is_plausible_brand_name(name):
             name_pattern = re.compile(
                 rf"(?<![a-z0-9]){re.escape(name.lower())}(?![a-z0-9])"
             )
@@ -320,10 +452,10 @@ _TOPIC_CLAUSE_OPENER_RE = re.compile(
 )
 _TOPIC_PHRASE_MAX_WORDS = 8
 
-# A real Northfieldbank.example company_profile ("Northfield is an integrated bank-insurance
+# A real KBC.com company_profile ("KBC is an integrated bank-insurance
 # group that offers financial services to retail, private banking, small
 # to medium-sized enterprises, and corporate customers.") still produced
-# a broken, over-long comparison-template prompt ("How does Northfield compare
+# a broken, over-long comparison-template prompt ("How does KBC compare
 # to other an integrated bank-insurance group that offers financial
 # services options?") even after the opener-clause strip and the comma
 # cut below -- the relative clause ("that offers financial services...")
@@ -336,32 +468,38 @@ _TOPIC_PHRASE_MAX_WORDS = 8
 # doing the real trimming.
 _TOPIC_RELATIVE_CLAUSE_RE = re.compile(r"\b(?:that|which|who)\b", re.IGNORECASE)
 
+# A word-cap or char-cap truncation can still land right after a
+# preposition/conjunction ("...products and offers various services
+# related to"), which reads as broken as the run-on sentences this whole
+# clause-stripping mechanism exists to prevent -- confirmed on real Shell
+# Belgium/Adecco Spain/Informa meta_description fallbacks. Applied as a
+# last defensive pass after every truncation point (word cap or char
+# cap), never as the primary trimming mechanism.
+_DANGLING_TRAILING_WORD_RE = re.compile(
+    r"\s+(?:to|and|or|for|with|in|by|on|at|of|including|related)$",
+    re.IGNORECASE,
+)
 
-def _short_topic_phrase(text: str) -> str:
-    """Reduces a free-form company_profile sentence to a short noun phrase
-    suitable for splicing into "What is {topic}?" -- the whole first
-    sentence of a company_profile (e.g. "Northfield is an integrated bank-
-    insurance group that offers financial services to retail, private
-    banking, small to medium-sized enterprises, and corporate customers.")
-    used to be passed through untouched into `_clean_topic`, which only
-    truncates at 120 chars -- long past a clause boundary -- producing a
-    broken run-on prompt ("What is Northfield is an integrated bank-insurance
-    group that offers financial services to retail, private banking,
-    small to?"). Strips a leading "<Subject> <verb> " clause first (the
+
+def _strip_dangling_trailing_word(phrase: str) -> str:
+    while True:
+        stripped = _DANGLING_TRAILING_WORD_RE.sub("", phrase)
+        if stripped == phrase:
+            return phrase
+        phrase = stripped
+
+
+def _strip_topic_clause(phrase: str) -> str:
+    """Shared clause-reduction step used by both `_short_topic_phrase`
+    (company_profile) and `_clean_topic` (meta_description/title
+    fallback): strips a leading "<Subject> <verb> " clause (the
     descriptive part after it is the actual topic, e.g. "an integrated
-    bank-insurance group..."). The original fix only recognized "is/are";
-    a real Northwindpay.example company_profile ("Northwind Pay offers a range of
-    financial tools and services, including payment processing, billing,
-    and money management, to businesses of all sizes.") has no "is/are"
-    at all, so the opener-clause regex also recognizes the other common
-    third-person-singular verbs a company_profile opens with right after
-    its subject -- offers/provides/delivers/helps/specializes in/sells/
-    manufactures/produces/distributes/makes/builds/develops -- stripping
-    "<Subject> <verb> " the same way. Then cuts at the first remaining
-    clause boundary -- a comma OR a relative pronoun (that/which/who),
-    whichever comes first -- or an ~8-word cap as the last-resort
-    fallback, never the full sentence verbatim."""
-    phrase = _first_sentence(text)
+    bank-insurance group..."), then cuts at the first remaining clause
+    boundary -- a comma OR a relative pronoun (that/which/who), whichever
+    comes first -- then an ~8-word cap as a last-resort fallback, then a
+    defensive dangling-preposition/conjunction strip, never the full
+    sentence verbatim. `phrase` is assumed to already be a single
+    sentence (callers apply `_first_sentence` first)."""
     match = _TOPIC_CLAUSE_OPENER_RE.match(phrase)
     if match:
         phrase = phrase[match.end() :]
@@ -374,7 +512,38 @@ def _short_topic_phrase(text: str) -> str:
     words = phrase.split()
     if len(words) > _TOPIC_PHRASE_MAX_WORDS:
         phrase = " ".join(words[:_TOPIC_PHRASE_MAX_WORDS])
-    return phrase.strip().rstrip(".,;:")
+    phrase = phrase.strip().rstrip(".,;:")
+    return _strip_dangling_trailing_word(phrase).strip()
+
+
+def _short_topic_phrase(text: str) -> str:
+    """Reduces a free-form company_profile sentence to a short noun phrase
+    suitable for splicing into "What is {topic}?" -- the whole first
+    sentence of a company_profile (e.g. "KBC is an integrated bank-
+    insurance group that offers financial services to retail, private
+    banking, small to medium-sized enterprises, and corporate customers.")
+    used to be passed through untouched into `_clean_topic`, which only
+    truncates at 120 chars -- long past a clause boundary -- producing a
+    broken run-on prompt ("What is KBC is an integrated bank-insurance
+    group that offers financial services to retail, private banking,
+    small to?"). Strips a leading "<Subject> <verb> " clause first (the
+    descriptive part after it is the actual topic, e.g. "an integrated
+    bank-insurance group..."). The original fix only recognized "is/are";
+    a real Stripe.com company_profile ("Stripe offers a range of
+    financial tools and services, including payment processing, billing,
+    and money management, to businesses of all sizes.") has no "is/are"
+    at all, so the opener-clause regex also recognizes the other common
+    third-person-singular verbs a company_profile opens with right after
+    its subject -- offers/provides/delivers/helps/specializes in/sells/
+    manufactures/produces/distributes/makes/builds/develops -- stripping
+    "<Subject> <verb> " the same way. Then cuts at the first remaining
+    clause boundary -- a comma OR a relative pronoun (that/which/who),
+    whichever comes first -- or an ~8-word cap as the last-resort
+    fallback, never the full sentence verbatim. Delegates the actual
+    clause reduction to `_strip_topic_clause`, shared with `_clean_topic`
+    so the meta_description/title fallback gets the same clause-boundary
+    awareness (see `_clean_topic`'s own comment)."""
+    return _strip_topic_clause(_first_sentence(text))
 
 
 def _infer_topic(
@@ -390,56 +559,71 @@ def _infer_topic(
     # live meta description: it's written specifically to describe what
     # the company sells, rather than being whatever marketing copy a
     # <meta name="description"> tag happens to contain.
-    if is_real_profile(company_profile):
+    #
+    # `_looks_english` is deliberately checked against the RAW source text
+    # here, before `_clean_topic`/`_short_topic_phrase` clause-strip it
+    # down to a short phrase -- a code-review catch: `_looks_english`'s
+    # own short-phrase bypass (<=6 words skips the stopword check
+    # entirely, so e.g. "Tesla Motors" isn't falsely rejected) means
+    # checking it on the *already-shortened* topic can trip that same
+    # bypass for genuinely non-English text once Phase 1's clause-aware
+    # trimming reduces a long non-English sentence below the word limit
+    # (e.g. a Dutch meta description cut at its first comma). Checking the
+    # untrimmed source's word count/stopwords instead keeps the
+    # short-phrase bypass meaningful only for text that was actually short
+    # to begin with.
+    if is_real_profile(company_profile) and _looks_english(company_profile):
         topic = _clean_topic(_short_topic_phrase(company_profile))
-        if _looks_english(topic):
-            return topic, "company_profile"
-    if homepage["available"] and homepage["description"]:
+        return topic, "company_profile"
+    if (
+        homepage["available"]
+        and homepage["description"]
+        and _looks_english(homepage["description"])
+    ):
         topic = _clean_topic(homepage["description"])
-        if _looks_english(topic):
-            return topic, "meta_description"
-    if homepage["available"] and homepage["title"]:
+        return topic, "meta_description"
+    if (
+        homepage["available"]
+        and homepage["title"]
+        and _looks_english(homepage["title"])
+    ):
         topic = _clean_topic(homepage["title"])
-        if _looks_english(topic):
-            return topic, "title"
+        return topic, "title"
     return domain.split(".")[0], "domain_fallback"
 
 
 def _infer_brand_name(
     homepage: dict, domain: str, company_profile: str | None = None
 ) -> str:
-    # Brand-name derivation from company_profile now lives in
-    # citepulse.company_profile.infer_brand_name_from_profile, shared with
-    # task_readiness/task_generator.py's identical need (that module still
-    # carries its own copy of this fallback chain rather than importing
-    # this whole evidence-gathering module, which pulls in the RAG-probe
-    # machinery it doesn't need -- but both now call the same shared
-    # extraction helper instead of independently truncating to the first
-    # whitespace token, which is what previously turned "Hugging Face
-    # provides..." into brand_name "Hugging").
+    # Same "title, split on the separators a homepage <title> commonly
+    # uses" derivation as task_readiness/task_generator.py's brand_name --
+    # duplicated rather than imported since that module also pulls in the
+    # whole task-generation prompt-building machinery, well outside what
+    # this evidence-gathering module needs.
     #
     # A homepage <title> is a fragile source: a site can land CitePulse's
     # fetcher on a language-interstitial page (a bare "EN"/"NL" title --
-    # confirmed live on northfieldbank.example) that used to be accepted verbatim,
+    # confirmed live on kbc.com) that used to be accepted verbatim,
     # mechanically corrupting every citation-rate/share-of-voice probe
     # with the wrong brand name. Mirrors _infer_topic's fallback chain
-    # shape: prefer the human-reviewed, stable `Site.company_profile` when
-    # real, then a plausibility-gated title, then the domain -- never
-    # accepting a too-short or ISO-639-1-language-code candidate at any
-    # step.
+    # shape: prefer the human-reviewed, stable `Site.company_profile`
+    # (its leading word is almost always the company's own name, e.g.
+    # "KBC is a Belgian bank...") when real, then a plausibility-gated
+    # title, then the domain -- never accepting a too-short or
+    # ISO-639-1-language-code candidate at any step.
     if is_real_profile(company_profile):
-        brand = infer_brand_name_from_profile(company_profile)
-        if brand:
-            return brand
+        first_word = company_profile.strip().split(" ", 1)[0].strip(".,;:!?\"'()")
+        if _looks_like_company_profile_brand_name(first_word):
+            return first_word
     title = homepage.get("title") if homepage.get("available") else None
     if title:
         brand = title.split(" - ")[0].split(" | ")[0].strip()
-        if is_plausible_brand_name(brand):
+        if _is_plausible_brand_name(brand):
             return brand
     return domain.split(".")[0] if domain else "the site"
 
 
-# Six intent segments: category
+# Six intent segments from the enhancement spec (section 3.2/5): category
 # discovery, capability, comparison, purchase, implementation, brand
 # navigation. Each has up to 3 templates, parameterized by `topic`
 # (what the site is/offers) and `brand` (its name) -- deliberately plain
@@ -1130,6 +1314,32 @@ def check_citation_rate(
         prompts_tested.append(probe)
         if probe["reason"] == "llm_unavailable":
             break
+
+    # Phase 4 (competitor relevance filtering): #24/#62's share-of-voice
+    # denominator uses a curated-or-corroborated domain set, not every
+    # domain that happened to show up in one probe's search results -- see
+    # _relevant_competitor_domains' docstring. This must run after every
+    # probe has been gathered (the >=2-probe fallback needs the full
+    # candidate_domains picture across the whole corpus) and before
+    # `competitor_domains` below is reassigned to the broader incidental
+    # set (a distinct, intentionally-unfiltered signal still used by
+    # citation_correctness.py to classify cited URLs).
+    # _competitor_mentions (not plain _domain_mentions) so a curated
+    # competitor mentioned by name (e.g. "HSBC"), not just its bare domain
+    # string ("hsbc.com"), still counts -- see that function's own
+    # docstring for why domain-only matching structurally never fires
+    # against AI-generated prose. A no-op for a fallback (uncurated)
+    # domain, since `competitor_names` has no entry for it and
+    # _competitor_mentions then matches on domain alone, identically to
+    # _domain_mentions.
+    relevant_domains = _relevant_competitor_domains(
+        prompts_tested, competitor_domains or []
+    )
+    for probe in prompts_tested:
+        if probe["confirmed"]:
+            probe["domain_mentions"] = _competitor_mentions(
+                probe["answer_text"], [domain, *relevant_domains], competitor_names
+            )
 
     confirmed = [p for p in prompts_tested if p["confirmed"]]
     cited = [p for p in confirmed if p["cited"]]

@@ -228,6 +228,43 @@ def test_valid_n_below_floor_after_exclusion_is_unavailable_not_a_fabricated_ban
     assert result.raw_data["diagnostic"] == "sample_size_too_small"
 
 
+def test_five_of_six_excluded_one_valid_is_unavailable_not_a_headline_percent(
+    monkeypatch,
+):
+    # Phase 1 (product-loop review cycle): a real BNP Paribas Fortis
+    # report showed "61-65% overall" despite 5 of 6 task runs being
+    # excluded from that KPI -- confusing given only 1 site-attributable
+    # run remained. This reproduces that exact shape (runs_made=6,
+    # excluded_count=5 -> valid_n=1, below the default
+    # task_readiness_min_sample_size=3) and confirms the exclusion gate
+    # correctly marks the KPI unavailable/not-determined rather than
+    # producing a headline percentage off a single data point -- this is
+    # a verification of pre-existing gate logic (see the
+    # valid_n-below-floor branch in kpi_48.run), not a new fix.
+    results = [
+        _result("t1", "Task 1", success=True),
+        _result("t2", "Task 2", success=False, failure_cause="policy_restriction"),
+        _result("t3", "Task 3", success=False, failure_cause="policy_restriction"),
+        _result("t4", "Task 4", success=False, failure_cause="environment_issue"),
+        _result("t5", "Task 5", success=False, failure_cause="invalid_task"),
+        _result("t6", "Task 6", success=False, failure_cause="gated_boundary"),
+    ]
+    trace = _trace(results)
+    monkeypatch.setattr(
+        kpi_48,
+        "gather_task_readiness_trace",
+        lambda run_id, url, model=None, company_profile=None: trace,
+    )
+
+    result, finding = kpi_48.run(uuid4(), "https://example.com")
+
+    assert result.value is None
+    assert result.band is None
+    assert finding is None
+    assert result.raw_data["measurement_status"] == "not_determined"
+    assert result.raw_data["diagnostic"] == "sample_size_too_small"
+
+
 def test_heavy_exclusion_adds_a_distinct_caveat(monkeypatch):
     # Field-review follow-up item 4: >60% of attempted runs excluded (5 of
     # 8 here, 62.5%) is worth flagging separately from the small-sample-

@@ -80,22 +80,49 @@ _CAPITALIZED_WORD_RE = re.compile(r"\b[A-Z][a-zA-Z]{2,}\b")
 # targets the specific phrasing style of that failure mode -- a
 # hedged-but-still-asserted causal/prescriptive leap -- kept short and
 # literal on purpose.
+#
+# A real ing.be report slipped a second shape of the same failure mode
+# past this guard: "...could indicate a failure in ING's compliance with
+# regulatory requirements... impacting the company's ability to operate
+# its financial services, including payments, credits." -- a hedged
+# ("could indicate") but still-asserted causal/regulatory leap, just like
+# the "need to" phrasing, but naming a "failure" instead of a "need," and
+# separately asserting a business-impact clause ("impacting the
+# company's ability to ..."). Two more literal patterns, ANDed into
+# _has_causal_overreach below, close this gap the same conservative way:
+# under-detect rather than false-positive, modeled directly on the ING
+# sentence rather than a general causal-language classifier.
 _CAUSAL_OVERREACH_RE = re.compile(
     r"\b(?:may|might|could)\s+indicate\s+(?:a|an)\s+need\s+to\b",
+    re.IGNORECASE,
+)
+_CAUSAL_OVERREACH_FAILURE_RE = re.compile(
+    r"\b(?:may|might|could)\s+indicate\s+(?:a|an)\s+failure\b",
+    re.IGNORECASE,
+)
+_CAUSAL_OVERREACH_ABILITY_RE = re.compile(
+    r"\b(?:impacting|affecting)\s+(?:the\s+company's|its|their|[A-Z][a-zA-Z]*'s)"
+    r"\s+ability\s+to\b",
     re.IGNORECASE,
 )
 
 
 def _has_causal_overreach(narrative: str) -> bool:
     """True when the narrative asserts a hedged-but-prescriptive causal
-    leap (e.g. "...this may indicate a need to overhaul...") that named-
-    entity grounding alone can't catch, since the words involved are
-    ordinary lowercase vocabulary rather than an invented proper noun.
-    Matching this pattern is itself sufficient grounds for rejection --
-    CitePulse's narrative contract only permits describing the measured
-    gap and its plausible AEO-specific implications, never prescribing an
-    unstated organizational/business action as a consequence."""
-    return bool(_CAUSAL_OVERREACH_RE.search(narrative))
+    leap (e.g. "...this may indicate a need to overhaul...", "...could
+    indicate a failure in...", "...impacting the company's ability to...")
+    that named-entity grounding alone can't catch, since the words
+    involved are ordinary lowercase vocabulary rather than an invented
+    proper noun. Matching any one of these patterns is itself sufficient
+    grounds for rejection -- CitePulse's narrative contract only permits
+    describing the measured gap and its plausible AEO-specific
+    implications, never prescribing an unstated organizational/business
+    action or asserting an unstated causal/regulatory consequence."""
+    return bool(
+        _CAUSAL_OVERREACH_RE.search(narrative)
+        or _CAUSAL_OVERREACH_FAILURE_RE.search(narrative)
+        or _CAUSAL_OVERREACH_ABILITY_RE.search(narrative)
+    )
 
 
 def check_narrative_grounding(narrative: str, allowed_facts: list[str]) -> bool:

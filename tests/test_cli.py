@@ -136,7 +136,10 @@ def test_audit_command_completes_and_prints_report(monkeypatch, tmp_path):
 
     assert result.exit_code == 0
     assert "KPI #46" in result.output
-    assert "Band: critical" in result.output
+    # Phase 1 (product-loop review cycle): llms.txt absence (KPI #46 tier
+    # 0) is downgraded from "critical"/"high" to "needs_improvement"/
+    # "medium" -- see citepulse/kpis/kpi_46.py's _BAND_BY_TIER comment.
+    assert "Band: needs_improvement" in result.output
     assert "KPI #22" in result.output
     assert "KPI #48" in result.output
     assert "KPI #58" in result.output

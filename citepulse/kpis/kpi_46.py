@@ -14,8 +14,18 @@ from citepulse.remediation import render_template
 
 _KPI = KPI_CATALOG[46]
 
-_BAND_BY_TIER = {0: "critical", 1: "needs_improvement", 2: "good", 3: "best_in_class"}
-_SEVERITY_BY_TIER = {0: "high", 1: "medium", 2: "low"}
+# Tier 0 (llms.txt missing) used to map to "critical"/"high" -- current
+# AEO/AI-readiness practitioner consensus (Profound/Otterly.ai/Scrunch AI
+# methodology, general field consensus) is that llms.txt has no
+# demonstrated effect on AI-answer citations: it's an optional, unproven
+# discovery-format proposal, not a load-bearing signal like crawl
+# accessibility or citation rate. Treating its absence as "Critical"/high
+# over-weighted it relative to KPIs with real evidence behind them, so
+# it's downgraded to the same "needs_improvement"/"medium" tier 1 already
+# uses -- still flagged as a real gap worth fixing, just not escalated
+# past what the evidence supports.
+_BAND_BY_TIER = {0: "needs_improvement", 1: "needs_improvement", 2: "good", 3: "best_in_class"}
+_SEVERITY_BY_TIER = {0: "medium", 1: "medium", 2: "low"}
 
 
 def run(

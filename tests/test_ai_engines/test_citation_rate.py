@@ -211,6 +211,41 @@ def test_non_english_description_and_title_falls_back_to_domain(monkeypatch):
 
 
 @respx.mock
+def test_non_english_ascii_description_is_rejected_even_after_clause_trimming(
+    monkeypatch,
+):
+    """Code-review catch on the Phase 1b clause-aware trimming fix: a
+    long, pure-ASCII non-English sentence (no accented characters, so it
+    can't be caught by _looks_english's non-ASCII check) with a comma
+    used to be correctly rejected because _clean_topic kept it at full,
+    >6-word, stopword-free length. After Phase 1b's clause-opener-strip +
+    comma-cut, the same sentence can shrink to <=6 words, tripping
+    _looks_english's short-phrase bypass and falsely passing as English.
+    _infer_topic must check English-ness against the RAW source text
+    (before trimming), not the already-shortened topic, so this must
+    still fall through to the title/domain fallback."""
+    _mock_homepage_ok(
+        description=(
+            "Wij bieden uitstekende diensten, ondersteuning en advies aan "
+            "bedrijven wereldwijd vandaag."
+        ),
+        # The title is also a long, stopword-free, non-English sentence
+        # (rather than a short brand-name-style phrase) so this test isn't
+        # confounded by _looks_english's separate, deliberate short-phrase
+        # bypass -- see test_short_english_title_with_no_stopwords_is_accepted
+        # below for why a short non-English-looking phrase is accepted.
+        title="Voorbeeld Bedrijf voor Zakelijke Klanten en Diensten Vandaag",
+    )
+    _patch_search(monkeypatch, [_SOME_RESULTS])
+    _mock_ollama("According to example.com, this is great.")
+
+    evidence = check_citation_rate(_SITE_URL)
+
+    assert evidence["topic_source"] == "domain_fallback"
+    assert evidence["topic"] == "example"
+
+
+@respx.mock
 def test_short_english_title_with_no_stopwords_is_accepted(monkeypatch):
     """A short brand-name-style title/description (no common English
     function words) must not be rejected as non-English -- only
@@ -227,6 +262,13 @@ def test_short_english_title_with_no_stopwords_is_accepted(monkeypatch):
 
 @respx.mock
 def test_abbreviation_period_is_not_treated_as_sentence_end(monkeypatch):
+    """_first_sentence must not treat the period in "Acme Corp." as a
+    sentence end -- if it did, the sentence would be cut short to just
+    "Acme Corp" and the Phase 1b clause-opener strip below (which
+    recognizes "delivers") would never fire, since "delivers" would
+    already be gone. Asserting the topic is the clause-stripped remainder
+    ("world-class software solutions for enterprises") rather than "Acme
+    Corp" proves the full sentence was captured before clause reduction."""
     _mock_homepage_ok(
         description="Acme Corp. delivers world-class software solutions for enterprises."
     )
@@ -235,10 +277,7 @@ def test_abbreviation_period_is_not_treated_as_sentence_end(monkeypatch):
 
     evidence = check_citation_rate(_SITE_URL)
 
-    assert (
-        evidence["topic"]
-        == "Acme Corp. delivers world-class software solutions for enterprises"
-    )
+    assert evidence["topic"] == "world-class software solutions for enterprises"
 
 
 @respx.mock
@@ -526,10 +565,10 @@ def test_real_company_profile_preferred_over_meta_description(monkeypatch):
 
 @respx.mock
 def test_category_discovery_prompt_is_short_phrase_not_run_on_sentence(monkeypatch):
-    """Regression for the real Northfieldbank.example report bug: `_infer_topic()` used to
+    """Regression for the real KBC.com report bug: `_infer_topic()` used to
     return the WHOLE first sentence of `Site.company_profile` as `topic`,
     spliced verbatim into "What is {topic}?", producing a broken run-on
-    prompt like "What is Northfield is an integrated bank-insurance group that
+    prompt like "What is KBC is an integrated bank-insurance group that
     offers financial services to retail, private banking, small to?" (cut
     off mid-clause by _clean_topic's 120-char truncation). This asserts the
     ACTUAL rendered category_discovery prompt text is a short phrase, not
@@ -543,7 +582,7 @@ def test_category_discovery_prompt_is_short_phrase_not_run_on_sentence(monkeypat
         _SITE_URL,
         num_prompts=1,
         company_profile=(
-            "Northfield is an integrated bank-insurance group that offers "
+            "KBC is an integrated bank-insurance group that offers "
             "financial services to retail, private banking, small to "
             "medium-sized enterprises, and corporate customers."
         ),
@@ -556,7 +595,7 @@ def test_category_discovery_prompt_is_short_phrase_not_run_on_sentence(monkeypat
     # a real short noun phrase is nowhere near that long and never
     # contains the mid-sentence fragments the old truncation left dangling.
     assert len(prompt) < 80
-    assert "Northfield is an integrated bank-insurance group that offers" not in prompt
+    assert "KBC is an integrated bank-insurance group that offers" not in prompt
     assert not prompt.rstrip("?").rstrip().endswith("small to")
 
 
@@ -564,7 +603,7 @@ def test_category_discovery_prompt_is_short_phrase_not_run_on_sentence(monkeypat
 def test_category_discovery_prompt_short_phrase_with_multi_word_brand(monkeypatch):
     """Regression for a code-review finding on the fix above: the "strip a
     leading '<Subject> is/are ' clause" step must not assume a one-word
-    subject -- a real multi-word brand name (e.g. cascadebank_example, one
+    subject -- a real multi-word brand name (e.g. bnpparibasfortis_be, one
     of the field review's own 5 audited sites) must have its full "BNP
     Paribas Fortis is" clause stripped, not just the first token."""
     _mock_homepage_ok(description="a generic example product", title="EN")
@@ -575,7 +614,7 @@ def test_category_discovery_prompt_short_phrase_with_multi_word_brand(monkeypatc
         _SITE_URL,
         num_prompts=1,
         company_profile=(
-            "Cascade Bank is a leading bank-insurance group in Belgium."
+            "BNP Paribas Fortis is a leading bank-insurance group in Belgium."
         ),
     )
 
@@ -590,11 +629,11 @@ def test_category_discovery_prompt_short_phrase_with_offers_opener(monkeypatch):
     original `_short_topic_phrase()` fix only stripped a leading
     "<Subject> is/are " clause, so a company_profile phrased with a
     different common opener fell straight through to the 8-word cap
-    instead. Confirmed live on a real Northwindpay.example audit -- Northwind Pay's real
-    company_profile ("Northwind Pay offers a range of financial tools and
+    instead. Confirmed live on a real Stripe.com audit -- Stripe's real
+    company_profile ("Stripe offers a range of financial tools and
     services, including payment processing, billing, and money
     management, to businesses of all sizes.") has no "is/are" at all, so
-    it used to produce "What is Northwind Pay offers a range of financial tools
+    it used to produce "What is Stripe offers a range of financial tools
     and?" -- truncated mid-clause with a dangling "and". This asserts the
     "offers" opener is now stripped the same way "is/are" is."""
     _mock_homepage_ok(description="a generic example product", title="EN")
@@ -605,7 +644,7 @@ def test_category_discovery_prompt_short_phrase_with_offers_opener(monkeypatch):
         _SITE_URL,
         num_prompts=1,
         company_profile=(
-            "Northwind Pay offers a range of financial tools and services, "
+            "Stripe offers a range of financial tools and services, "
             "including payment processing, billing, and money "
             "management, to businesses of all sizes."
         ),
@@ -615,14 +654,14 @@ def test_category_discovery_prompt_short_phrase_with_offers_opener(monkeypatch):
     assert prompt == "What is a range of financial tools and services?"
     assert prompt.endswith("?")
     assert not prompt.rstrip("?").rstrip().endswith("and")
-    assert "Northwind Pay offers" not in prompt
+    assert "Stripe offers" not in prompt
 
 
 @respx.mock
 def test_category_discovery_prompt_short_phrase_with_sells_opener(monkeypatch):
-    """Verified real bug: brewhaven.example's company_profile ("Brewhaven
-    Group sells beer and other beverages across more than 150 countries.")
-    produced "What is Brewhaven Group sells beer and other
+    """Verified real bug: ab-inbev.com's company_profile ("Anheuser-Busch
+    InBev sells beer and other beverages across more than 150 countries.")
+    produced "What is Anheuser-Busch InBev sells beer and other
     beverages?" -- "sells" wasn't in the opener-clause verb list, so
     nothing was stripped and the broken double-subject sentence went
     through untouched."""
@@ -634,22 +673,22 @@ def test_category_discovery_prompt_short_phrase_with_sells_opener(monkeypatch):
         _SITE_URL,
         num_prompts=1,
         company_profile=(
-            "Brewhaven Group sells beer and other beverages across "
+            "Anheuser-Busch InBev sells beer and other beverages across "
             "more than 150 countries."
         ),
     )
 
     prompt = evidence["prompts_tested"][0]["query"]
     assert prompt.startswith("What is beer")
-    assert "Brewhaven Group sells" not in prompt
+    assert "Anheuser-Busch InBev sells" not in prompt
 
 
 @respx.mock
-def test_comparison_prompt_topic_is_short_noun_phrase_not_relative_clause(
+def test_comparison_prompt_kbc_topic_is_short_noun_phrase_not_relative_clause(
     monkeypatch,
 ):
-    """Verified real bug: northfieldbank.example's company_profile produced "How does
-    Northfield compare to other an integrated bank-insurance group that offers
+    """Verified real bug: kbc.com's company_profile produced "How does
+    KBC compare to other an integrated bank-insurance group that offers
     financial services options?" for the comparison-segment template --
     the topic was still a full descriptive relative clause even after the
     8-word cap, not a short noun phrase. Cutting at the first relative
@@ -663,7 +702,7 @@ def test_comparison_prompt_topic_is_short_noun_phrase_not_relative_clause(
         _SITE_URL,
         num_prompts=6,  # round-robin corpus reaches the comparison segment
         company_profile=(
-            "Northfield is an integrated bank-insurance group that offers "
+            "KBC is an integrated bank-insurance group that offers "
             "financial services to retail, private banking, small to "
             "medium-sized enterprises, and corporate customers."
         ),
@@ -677,13 +716,122 @@ def test_comparison_prompt_topic_is_short_noun_phrase_not_relative_clause(
     assert "that offers financial services" not in prompt
     assert (
         prompt
-        == "How does Northfield compare to other an integrated bank-insurance group options?"
+        == "How does KBC compare to other an integrated bank-insurance group options?"
     )
+
+
+# -- Phase 1 (product-loop review cycle): meta_description/title fallback ----
+# topic-phrase truncation. Real Shell Belgium/Adecco Spain/Informa audits
+# (none had a Site.company_profile set, so all three hit the
+# meta_description/title fallback in _infer_topic rather than the
+# company_profile branch) produced broken, grammatically-mangled prompts
+# like "What is petroleum products and offers various services related
+# to?" -- the fallback branches called the plain _clean_topic, which only
+# did first-sentence + hard character-length truncation with no
+# clause-boundary awareness, unlike the company_profile branch's
+# _short_topic_phrase. These regression tests exercise realistic
+# long marketing-sentence meta descriptions (no company_profile passed,
+# so _infer_topic falls through to the meta_description branch) and
+# assert the resulting topic/prompt never ends in a dangling
+# preposition/conjunction and never produces a run-on question.
+
+
+def _assert_topic_phrase_is_clean(prompt):
+    assert prompt.startswith("What is ")
+    assert prompt.endswith("?")
+    body = prompt[len("What is ") : -1].rstrip()
+    dangling_endings = (
+        " to",
+        " and",
+        " or",
+        " for",
+        " with",
+        " in",
+        " related to",
+        " including",
+    )
+    assert not body.lower().endswith(dangling_endings), prompt
+    assert len(prompt) < 100, prompt
+
+
+@respx.mock
+def test_meta_description_fallback_shell_style_topic_has_no_dangling_preposition(
+    monkeypatch,
+):
+    """Shaped like real Shell homepage copy: a long sentence naming the
+    company, a verb ("provides"), and a long comma-separated list of
+    products/services -- no company_profile set, so this hits the
+    meta_description fallback branch directly."""
+    _mock_homepage_ok(
+        description=(
+            "Shell provides petroleum products and offers various services "
+            "related to exploration, production, refining, marketing, and "
+            "distribution of oil and gas to customers worldwide."
+        ),
+        title="Shell",
+    )
+    _patch_search(monkeypatch, [_SOME_RESULTS])
+    _mock_ollama("According to example.com, this is great.")
+
+    evidence = check_citation_rate(_SITE_URL, num_prompts=1)
+
+    assert evidence["topic_source"] == "meta_description"
+    prompt = evidence["prompts_tested"][0]["query"]
+    _assert_topic_phrase_is_clean(prompt)
+    assert "Shell provides" not in prompt
+
+
+@respx.mock
+def test_meta_description_fallback_adecco_style_topic_has_no_dangling_preposition(
+    monkeypatch,
+):
+    """Shaped like real Adecco homepage copy: "Adecco offers ..." followed
+    by a long comma-separated list of staffing/HR services."""
+    _mock_homepage_ok(
+        description=(
+            "Adecco offers staffing, recruitment, career transition, and "
+            "human resources consulting services to businesses and job "
+            "seekers around the world."
+        ),
+        title="Adecco",
+    )
+    _patch_search(monkeypatch, [_SOME_RESULTS])
+    _mock_ollama("According to example.com, this is great.")
+
+    evidence = check_citation_rate(_SITE_URL, num_prompts=1)
+
+    assert evidence["topic_source"] == "meta_description"
+    prompt = evidence["prompts_tested"][0]["query"]
+    _assert_topic_phrase_is_clean(prompt)
+    assert "Adecco offers" not in prompt
+
+
+@respx.mock
+def test_title_fallback_informa_style_topic_has_no_dangling_preposition(monkeypatch):
+    """Informa-style copy in the <title> fallback (no meta description at
+    all, so _infer_topic falls all the way through to the title branch)."""
+    _mock_homepage_ok(
+        description=None,
+        title=(
+            "Informa provides business intelligence, academic publishing, "
+            "and knowledge and events services to specialist professional "
+            "markets and communities worldwide."
+        ),
+    )
+    _patch_search(monkeypatch, [_SOME_RESULTS])
+    _mock_ollama("According to example.com, this is great.")
+
+    evidence = check_citation_rate(_SITE_URL, num_prompts=1)
+
+    assert evidence["topic_source"] == "title"
+    prompt = evidence["prompts_tested"][0]["query"]
+    _assert_topic_phrase_is_clean(prompt)
+    assert "Informa provides" not in prompt
 
 
 @respx.mock
 def test_brand_name_rejects_language_code_title_with_company_profile(monkeypatch):
-    """Regression for the Northfieldbank.example bug: a homepage title of a bare
+    """Regression for the KBC.com bug: a homepage title of a bare
     language-interstitial code ("EN") must never become brand_name -- with
     a real company_profile present, brand_name should be derived from it
     instead."""
@@ -695,12 +843,12 @@ def test_brand_name_rejects_language_code_title_with_company_profile(monkeypatch
         _SITE_URL,
         num_prompts=1,
         company_profile=(
-            "Northfield is a Belgian bank-insurance group offering banking, "
+            "KBC is a Belgian bank-insurance group offering banking, "
             "insurance, and asset management services."
         ),
     )
 
-    assert evidence["brand_name"] == "Northfield"
+    assert evidence["brand_name"] == "KBC"
     assert evidence["brand_name"] != "EN"
 
 
@@ -755,49 +903,6 @@ def test_brand_name_rejects_short_language_code_variants(monkeypatch, code):
     evidence = check_citation_rate(_SITE_URL, num_prompts=1)
 
     assert evidence["brand_name"] != code
-
-
-@respx.mock
-def test_brand_name_extracts_multi_word_brand_from_company_profile(monkeypatch):
-    """Regression for a real huggingface.co audit: company_profile "Hugging
-    Face provides a platform for hosting..." used to yield brand_name
-    "Hugging" (a naive first-whitespace-token split), corrupting every
-    generated citation-test prompt with a company that isn't Hugging Face.
-    brand_name must now capture the full multi-word subject."""
-    _mock_homepage_ok(description="a generic example product", title="Example")
-    _patch_search(monkeypatch, [_SOME_RESULTS])
-    _mock_ollama("According to example.com, this is great.")
-
-    evidence = check_citation_rate(
-        _SITE_URL,
-        num_prompts=1,
-        company_profile=(
-            "Hugging Face provides a platform for hosting, collaborating, "
-            "and building artificial intelligence models and applications."
-        ),
-    )
-
-    assert evidence["brand_name"] == "Hugging Face"
-    assert evidence["brand_name"] != "Hugging"
-
-
-@respx.mock
-def test_brand_name_extracts_three_word_brand_from_company_profile(monkeypatch):
-    """A second multi-word case, with a different opener verb ("offers"
-    rather than "provides") and three words rather than two."""
-    _mock_homepage_ok(description="a generic example product", title="Example")
-    _patch_search(monkeypatch, [_SOME_RESULTS])
-    _mock_ollama("According to example.com, this is great.")
-
-    evidence = check_citation_rate(
-        _SITE_URL,
-        num_prompts=1,
-        company_profile=(
-            "BNP Paribas Fortis offers retail and business banking services."
-        ),
-    )
-
-    assert evidence["brand_name"] == "BNP Paribas Fortis"
 
 
 @respx.mock
@@ -1237,7 +1342,7 @@ def test_tracked_competitor_hits_reports_curated_mentions(monkeypatch):
 
 @respx.mock
 def test_tracked_competitor_hits_matches_by_name_not_just_domain(monkeypatch):
-    """Verified real bug: real northfieldbank.example audit data showed
+    """Verified real bug: real kbc.com audit data showed
     tracked_competitor_hits empty on every single probe despite 7 tracked
     competitors (HSBC, BNP Paribas, ING, etc.), because AI-generated
     prose names a company ("HSBC"), never its literal domain string

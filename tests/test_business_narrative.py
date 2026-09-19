@@ -93,6 +93,44 @@ def test_grounding_passes_normal_narrative_without_causal_overreach_phrase():
     assert check_narrative_grounding(narrative, facts) is True
 
 
+def test_grounding_rejects_ing_style_failure_and_ability_overreach_phrase():
+    """Real bug: a real ing.be CitePulse report produced this fabricated
+    claim, which slipped past the original "may/might/could indicate a
+    need to" pattern because it names a "failure" rather than a "need",
+    and separately asserts an unstated business-impact clause ("impacting
+    the company's ability to ..."). Both phrasing shapes must now be
+    caught independently -- either one alone is sufficient to reject."""
+    facts = [_COMPANY_PROFILE, "Crawl Accessibility", "low"]
+    narrative = (
+        "This could indicate a failure in ING's compliance with "
+        "regulatory requirements, impacting the company's ability to "
+        "operate its financial services, including payments, credits."
+    )
+
+    assert check_narrative_grounding(narrative, facts) is False
+
+
+def test_grounding_rejects_failure_phrase_alone():
+    """The "indicate a failure" shape alone (no "ability to" clause) must
+    also be rejected on its own."""
+    facts = [_COMPANY_PROFILE, "Crawl Accessibility", "low"]
+    narrative = "This may indicate a failure in the company's internal review process."
+
+    assert check_narrative_grounding(narrative, facts) is False
+
+
+def test_grounding_rejects_ability_to_phrase_alone():
+    """The "impacting/affecting ... ability to" shape alone (no "indicate
+    a failure" clause) must also be rejected on its own."""
+    facts = [_COMPANY_PROFILE, "Crawl Accessibility", "low"]
+    narrative = (
+        "This gap is affecting the company's ability to serve customers "
+        "reliably."
+    )
+
+    assert check_narrative_grounding(narrative, facts) is False
+
+
 def test_grounding_uses_word_boundaries_not_bare_substring_containment():
     """A short capitalized candidate must not be "grounded" just because
     it happens to appear as a substring inside an unrelated longer word

@@ -642,7 +642,7 @@ _HTML_TEMPLATE = """\
 {% if ai_visibility_caption %}<p class="caption">{{ ai_visibility_caption }}</p>{% endif %}
 {% for entry in ai_visibility %}
 <p><strong>{{ entry.label }}:</strong>
-{% if entry.value is not none %}{{ entry.display_value }} overall
+{% if entry.value is not none %}{{ entry.display_value }}
 (N={{ entry.sample_size }}, {{ entry.confidence }} confidence){% else %}not determined{% endif %}
 </p>
 <ul>
@@ -2609,7 +2609,7 @@ def render_markdown_report(data: dict) -> str:
                 else "not determined"
             )
             lines.append(
-                f"**{label}:** {overall} overall "
+                f"**{label}:** {overall} "
                 f"(N={entry['sample_size']}, {entry['confidence']} confidence)"
             )
             for segment in entry["segments"]:

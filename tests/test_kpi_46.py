@@ -94,10 +94,16 @@ def test_absent_llms_txt_produces_grounded_finding():
     result, finding = kpi_46.run(uuid4(), "https://example.com")
 
     assert result.value == 0.0
-    assert result.band == "critical"
+    # Phase 1 (product-loop review cycle): llms.txt absence is downgraded
+    # from "critical"/"high" -- practitioner consensus (Profound/
+    # Otterly.ai/Scrunch AI methodology) is that llms.txt has no
+    # demonstrated effect on AI-answer citations, so over-weighting its
+    # absence relative to evidence-backed KPIs (crawl accessibility,
+    # citation rate) was itself a bug.
+    assert result.band == "needs_improvement"
     assert result.raw_data["measurement_status"] == ms.MEASURED
     assert finding is not None
-    assert finding.severity == "high"
+    assert finding.severity == "medium"
     # Attribution: the remediation text names the actual URLs checked, not
     # a generic "something's wrong" message.
     assert "https://example.com/llms.txt" in finding.recommended_fix
