@@ -190,6 +190,147 @@ def test_score_reflects_mention_position_not_just_raw_count(monkeypatch):
     assert result.value == 50.0
 
 
+_RESULTS_ONE_OFF_NOISE = [
+    SearchResult(title="Example", url="https://example.com/about", content="snippet"),
+    SearchResult(
+        title="Noise", url="https://irrelevant-once.example", content="snippet"
+    ),
+]
+_RESULTS_PERSISTENT_RIVAL = [
+    SearchResult(title="Example", url="https://example.com/about", content="snippet"),
+    SearchResult(
+        title="Rival", url="https://persistent-rival.example", content="snippet"
+    ),
+]
+
+
+@respx.mock
+def test_one_off_serp_domain_excluded_from_share_of_voice(monkeypatch):
+    """Phase 4: a domain seen in only one probe's search results (e.g. an
+    unrelated blog that happened to rank for one query -- the real-world
+    Adecco/Shell bug this replaces) must not be treated as a competitor
+    for #24's denominator when no curated competitor list exists."""
+    _use_three_prompts(monkeypatch)
+    _disable_extra_metrics(monkeypatch)
+    _mock_homepage_ok()
+    _patch_search(
+        monkeypatch,
+        [
+            _RESULTS_ONE_OFF_NOISE,
+            _RESULTS_PERSISTENT_RIVAL,
+            _RESULTS_PERSISTENT_RIVAL,
+        ],
+    )
+    _mock_ollama(
+        [
+            "irrelevant-once.example has a mention of this too.",
+            "persistent-rival.example is popular.",
+            "persistent-rival.example is popular.",
+        ]
+    )
+
+    result, _finding = kpi_24.run(uuid4(), _SITE_URL)
+
+    probes = result.raw_data["prompts_tested"]
+    assert "irrelevant-once.example" not in probes[0]["domain_mentions"]
+    assert "persistent-rival.example" in probes[1]["domain_mentions"]
+    assert "persistent-rival.example" in probes[2]["domain_mentions"]
+
+
+@respx.mock
+def test_domain_seen_across_two_probes_is_included(monkeypatch):
+    """The inverse of the above: a domain corroborated across >=2 distinct
+    probes' search results is treated as a real competitor candidate, even
+    with no curated competitor list."""
+    _use_three_prompts(monkeypatch)
+    _disable_extra_metrics(monkeypatch)
+    _mock_homepage_ok()
+    _patch_search(
+        monkeypatch,
+        [
+            _RESULTS_PERSISTENT_RIVAL,
+            _RESULTS_PERSISTENT_RIVAL,
+            _RESULTS_PERSISTENT_RIVAL,
+        ],
+    )
+    _mock_ollama(
+        [
+            "example.com is well known.",
+            "persistent-rival.example is popular.",
+            "persistent-rival.example is popular.",
+        ]
+    )
+
+    result, finding = kpi_24.run(uuid4(), _SITE_URL)
+
+    assert result.value == 33.3
+    assert result.band == "needs_improvement"
+    assert "persistent-rival.example" in finding.recommended_fix
+
+
+@respx.mock
+def test_curated_competitors_take_precedence_over_incidental_serp_set(monkeypatch):
+    """Phase 4: when the site tracks curated competitors, #24 scores
+    against that set instead of the incidental SERP-derived one -- so a
+    domain that only ever showed up once in search results (and would be
+    dropped by the >=2-probe fallback) still counts when it's explicitly
+    curated, and an incidental SERP domain that was never curated is
+    ignored even if it appeared in every probe."""
+    _use_three_prompts(monkeypatch)
+    _disable_extra_metrics(monkeypatch)
+    _mock_homepage_ok()
+    _patch_search(
+        monkeypatch,
+        [
+            _RESULTS_ONE_OFF_NOISE,
+            _RESULTS_PERSISTENT_RIVAL,
+            _RESULTS_PERSISTENT_RIVAL,
+        ],
+    )
+    _mock_ollama(
+        [
+            "irrelevant-once.example has a mention of this too.",
+            "persistent-rival.example is popular.",
+            "persistent-rival.example is popular.",
+        ]
+    )
+
+    result, _finding = kpi_24.run(
+        uuid4(), _SITE_URL, competitor_domains=["irrelevant-once.example"]
+    )
+
+    probes = result.raw_data["prompts_tested"]
+    assert "irrelevant-once.example" in probes[0]["domain_mentions"]
+    assert "persistent-rival.example" not in probes[1]["domain_mentions"]
+    assert "persistent-rival.example" not in probes[2]["domain_mentions"]
+
+
+@respx.mock
+def test_curated_competitor_credited_by_name_not_only_domain_string(monkeypatch):
+    """Code-review catch: rebuilding domain_mentions for the curated set
+    must still credit a competitor named in prose (e.g. "Rival Co"), not
+    only its literal domain string -- AI-generated answers almost never
+    contain a bare domain (see _competitor_mentions' own docstring, a
+    verified kbc.com bug). Without this, a curated competitor mentioned
+    only by name would score as 0 mentions, silently inflating the site's
+    share of voice."""
+    _mock_homepage_ok()
+    _patch_search(monkeypatch, [_RESULTS_WITH_RIVAL])
+    _mock_ollama("Rival Co is the industry leader here.")
+
+    result, finding = kpi_24.run(
+        uuid4(),
+        _SITE_URL,
+        competitor_domains=["rival.example"],
+        competitor_names={"rival.example": "Rival Co"},
+    )
+
+    assert result.value == 0.0
+    assert result.band == "critical"
+    assert finding is not None
+    assert "rival.example" in finding.recommended_fix
+
+
 def test_model_is_threaded_through_to_check_citation_rate(monkeypatch):
     """Track C threading regression: kpi_24.run(..., model="X") must
     reach gather_citation_evidence(audit_run_id, site_url, model="X")."""
