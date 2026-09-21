@@ -468,16 +468,19 @@ def _get_steps_for_storage(result: TaskRunResult) -> list:
     if not result.steps:
         return []
     
-    steps_to_include = result.steps[-_MAX_STEPS_PER_TASK:]
-    
+    steps_to_include = list(result.steps[-_MAX_STEPS_PER_TASK:])
+
     last_error_step = None
     for s in result.steps:
         if s.action_result in ("error", "blocked_unsafe", "agent_done") and s.error:
             last_error_step = s
-            
+
     if last_error_step and last_error_step not in steps_to_include:
-        steps_to_include.insert(0, last_error_step)
-        
+        steps_to_include.append(last_error_step)
+        if len(steps_to_include) > _MAX_STEPS_PER_TASK:
+            steps_to_include.pop(0)
+        steps_to_include.sort(key=lambda s: s.step_number)
+
     return steps_to_include
 
 def _result_to_dict(result: TaskRunResult) -> dict:
