@@ -461,6 +461,25 @@ def _step_to_dict(step: TaskStep) -> dict:
     }
 
 
+def _get_steps_for_storage(result: TaskRunResult) -> list:
+    """Returns a bounded list of steps for storage, ensuring the last error step
+    (which classify_task_failure_subtype uses) is preserved even if it falls
+    outside the most recent _MAX_STEPS_PER_TASK."""
+    if not result.steps:
+        return []
+    
+    steps_to_include = result.steps[-_MAX_STEPS_PER_TASK:]
+    
+    last_error_step = None
+    for s in result.steps:
+        if s.action_result in ("error", "blocked_unsafe", "agent_done") and s.error:
+            last_error_step = s
+            
+    if last_error_step and last_error_step not in steps_to_include:
+        steps_to_include.insert(0, last_error_step)
+        
+    return steps_to_include
+
 def _result_to_dict(result: TaskRunResult) -> dict:
     return {
         "task_id": result.task_id,
@@ -469,7 +488,7 @@ def _result_to_dict(result: TaskRunResult) -> dict:
         "success": result.success,
         "agent_claimed_success": result.agent_claimed_success,
         "agent_reason": result.agent_reason,
-        "steps": [_step_to_dict(s) for s in result.steps[-_MAX_STEPS_PER_TASK:]],
+        "steps": [_step_to_dict(s) for s in _get_steps_for_storage(result)],
         "interaction_failures": result.interaction_failures,
         "attempted_actions": result.attempted_actions,
         "used_click_or_fill": result.used_click_or_fill,
