@@ -2638,7 +2638,7 @@ def test_task_results_omits_final_page_excerpt_when_absent(session):
 
 
 def test_task_results_section_falls_back_to_kpi_58_when_48_unavailable(session):
-    """#48 and #58 share the same underlying task-readiness trace --
+    """#48 and #58 share the same underlying task-readiness trace:
     when #48 itself is unavailable (value=None) but #58 still
     has a results list, the Task Results section must still render from
     #58 rather than being silently omitted."""
@@ -3442,6 +3442,123 @@ def test_detailed_fetch_diagnostics_shows_every_checked_path(session):
     markdown_report = render_markdown_report(data)
     assert "<summary>Per-Path Fetch Diagnostics (#46)" in markdown_report
     assert "HTTP 429 (retries exhausted)" in markdown_report
+
+
+def test_html_limitations_renders_block_list_without_raw_markup(session):
+    """The old escape-then-<br> splice printed a literal ``&lt;br&gt;`` and
+    the ``## Limitations`` heading twice (once from the template's own
+    <h2>, once as escaped/raw markdown). The HTML renderer now splits the
+    limited markdown into real <ul>/<li> blocks via
+    _limitations_html_blocks() with normal autoescape."""
+    site = Site(url="https://example.com")
+    session.add(site)
+    session.commit()
+    session.refresh(site)
+
+    run = AuditRun(site_id=site.id, status="completed")
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+
+    session.add(
+        KPIResult(
+            audit_run_id=run.id,
+            kpi_id=46,
+            kpi_name="llms.txt Readiness",
+            value=None,
+            unit="score_0_to_3",
+            band=None,
+            raw_data={"checked_paths_status": []},
+        )
+    )
+    session.commit()
+
+    data = gather_report_data(session, run.id)
+    html = render_html_report(data)
+
+    assert "<h2>Limitations</h2>" in html
+    assert "<ul class=\"caption\">" in html
+    assert "<li>" in html
+    assert "## Limitations" not in html
+    assert "&lt;br&gt;" not in html
+
+
+def test_html_kpi_card_diagnostic_lines_strip_markdown_backticks(session):
+    """checked_paths_diagnostic_lines() emits Markdown `` `path` `` (which
+    Markdown/Streamlit render as code), but the HTML card would print the
+    backticks verbatim -- the HTML-only renderer must strip them."""
+    site = Site(url="https://example.com")
+    session.add(site)
+    session.commit()
+    session.refresh(site)
+
+    run = AuditRun(site_id=site.id, status="completed")
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+
+    session.add(
+        KPIResult(
+            audit_run_id=run.id,
+            kpi_id=46,
+            kpi_name="llms.txt Readiness",
+            value=None,
+            unit="score_0_to_3",
+            band=None,
+            raw_data={
+                "checked_paths_status": [
+                    {
+                        "path": "https://example.com/llms.txt",
+                        "outcome": "not_determined",
+                        "diagnostic": "rate_limited",
+                        "detail": "HTTP 429 (retries exhausted)",
+                    }
+                ]
+            },
+        )
+    )
+    session.commit()
+
+    data = gather_report_data(session, run.id)
+    html = render_html_report(data)
+
+    assert "https://example.com/llms.txt: HTTP 429 (retries exhausted)" in html
+    assert "`https://example.com/llms.txt`" not in html
+
+
+def test_html_css_wraps_long_tokens_in_kpi_card_captions(session):
+    """Long unbroken tokens (URLs, failure-cause codes) must wrap inside
+    KPI cards instead of overflowing the card / forcing horizontal scroll
+    at phone width -- overflow-wrap: anywhere on .kpi-card-caption."""
+    site = Site(url="https://example.com")
+    session.add(site)
+    session.commit()
+    session.refresh(site)
+
+    run = AuditRun(site_id=site.id, status="completed")
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+
+    session.add(
+        KPIResult(
+            audit_run_id=run.id,
+            kpi_id=46,
+            kpi_name="llms.txt Readiness",
+            value=3.0,
+            unit="score_0_to_3",
+            band="best_in_class",
+        )
+    )
+    session.commit()
+
+    data = gather_report_data(session, run.id)
+    html = render_html_report(data)
+
+    assert (
+        ".kpi-card-caption { font-size: .78rem; color: var(--gray); margin: 0;"
+        " overflow-wrap: anywhere; }" in html
+    )
 
 
 def test_detailed_task_steps_includes_subtype_and_omits_retry(session):

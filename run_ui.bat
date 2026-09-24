@@ -21,6 +21,14 @@ if errorlevel 1 (
 )
 
 echo.
+echo Ensuring Playwright Chromium is installed (for screenshots)...
+.venv\Scripts\python.exe -m playwright install chromium
+if errorlevel 1 (
+    echo Warning: Playwright Chromium could not be installed - screenshots and
+    echo task-readiness visuals may be unavailable, but the app will still launch.
+)
+
+echo.
 echo === Launching CitePulse UI (opens in your browser) ===
 echo Press Ctrl+C in this window to stop the server.
 echo.

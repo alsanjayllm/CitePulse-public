@@ -157,10 +157,10 @@ def _as_leading_sentence(company_profile: str) -> str:
     individuals and families...". Splicing it verbatim into "Given
     {profile}, addressing..." produced a real, confirmed comma-splice/
     run-on after its own period ("...products. The company's customer is
-    likely individuals and families..., addressing the 3 issue(s) above
-    should be a priority."). Stripping any trailing terminal punctuation/
-    whitespace here lets the caller re-terminate it as its own clean
-    sentence instead."""
+    likely individuals and families..., addressing the 3 top issue(s)
+    identified in this report should be a priority."). Stripping any
+    trailing terminal punctuation/whitespace here lets the caller
+    re-terminate it as its own clean sentence instead."""
     return company_profile.strip().rstrip(".!?")
 
 
@@ -171,9 +171,9 @@ def _fallback_executive_sentence(
     if _has_real_profile(company_profile):
         return (
             f"{_as_leading_sentence(company_profile)}. Addressing the "
-            f"{n} issue(s) above should be a priority."
+            f"{n} top issue(s) identified in this report should be a priority."
         )
-    return f"Addressing the {n} issue(s) above should be a priority."
+    return f"Addressing the {n} top issue(s) identified in this report should be a priority."
 
 
 def _fallback_finding_sentence(company_profile: str, finding: Finding) -> str:

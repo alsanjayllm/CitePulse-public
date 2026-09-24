@@ -1,9 +1,9 @@
-"""Integration/regression test reproducing a real reference audit's failure
+"""Integration/regression test reproducing the reference audit's failure
 shape described in the plan "Fix UNAVAILABLE Handling for KPI #45 and #46"
-(target https://www.cascadebank.example/en/public/individuals, audit
-00000000-1111-2222-3333-444444444444, model qwen2.5:7b):
+(target https://www.bnpparibasfortis.be/en/public/individuals, audit
+3a4a4fdb-0d70-483b-ab61-636b1dc96330, model qwen2.5:7b):
 
-- 18 confirmed AI answers, 13 Cascade Bank citations detected
+- 18 confirmed AI answers, 13 BNP Paribas Fortis citations detected
 - 12/13 citation URLs could not be fetched
 - 1/13 had unresolved entailment
 - /llms.txt and /.well-known/llms.txt both returned inconclusive HTTP
@@ -25,24 +25,24 @@ from httpx import Response
 from citepulse import citation_correctness as cc
 from citepulse.kpis import kpi_45, kpi_46
 
-_SITE = "https://www.cascadebank.example/en/public/individuals"
-_DOMAIN = "cascadebank.example"
+_SITE = "https://www.bnpparibasfortis.be/en/public/individuals"
+_DOMAIN = "bnpparibasfortis.be"
 
 
 def _bnp_evidence():
-    """18 confirmed answers; 13 of them each cite one distinct Cascade Bank
-    URL (matching the reference audit's "13 citations detected" across 18
+    """18 confirmed answers; 13 of them each cite one distinct BNP URL
+    (matching the reference audit's "13 citations detected" across 18
     confirmed answers), the other 5 confirmed answers cite nothing."""
     probes = []
     for i in range(13):
-        url = f"https://www.cascadebank.example/en/page-{i}"
+        url = f"https://www.bnpparibasfortis.be/en/page-{i}"
         probes.append(
             {
                 "query": f"q{i}",
                 "segment": "capability",
                 "confirmed": True,
                 "cited": True,
-                "answer_text": f"According to {url}, Cascade Bank offers this service.",
+                "answer_text": f"According to {url}, BNP Paribas Fortis offers this service.",
             }
         )
     for i in range(13, 18):
@@ -52,7 +52,7 @@ def _bnp_evidence():
                 "segment": "capability",
                 "confirmed": True,
                 "cited": False,
-                "answer_text": "Cascade Bank offers this service.",
+                "answer_text": "BNP Paribas Fortis offers this service.",
             }
         )
     return {
@@ -75,10 +75,10 @@ def test_kpi_45_bnp_shape_is_not_measurable_not_zero_percent(monkeypatch):
     # browser fallback available in this mocked environment); 1 fetches
     # fine but resolves to an ambiguous UNKNOWN entailment.
     for i in range(12):
-        respx.get(f"https://www.cascadebank.example/en/page-{i}").mock(
+        respx.get(f"https://www.bnpparibasfortis.be/en/page-{i}").mock(
             return_value=Response(403)
         )
-    respx.get("https://www.cascadebank.example/en/page-12").mock(
+    respx.get("https://www.bnpparibasfortis.be/en/page-12").mock(
         return_value=Response(
             200, text="Some unrelated page content, not addressing the claim."
         )
@@ -114,10 +114,10 @@ def test_kpi_45_bnp_shape_is_not_measurable_not_zero_percent(monkeypatch):
 def test_kpi_46_bnp_shape_is_inconclusive_not_not_present():
     # urljoin() resolves the absolute "/llms.txt" / "/.well-known/llms.txt"
     # paths against the domain root, not the requested page path.
-    respx.get("https://www.cascadebank.example/llms.txt").mock(
+    respx.get("https://www.bnpparibasfortis.be/llms.txt").mock(
         return_value=Response(429)
     )
-    respx.get("https://www.cascadebank.example/.well-known/llms.txt").mock(
+    respx.get("https://www.bnpparibasfortis.be/.well-known/llms.txt").mock(
         return_value=Response(429)
     )
 

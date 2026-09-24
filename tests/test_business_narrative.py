@@ -199,8 +199,9 @@ def test_fallback_executive_sentence_avoids_comma_splice_after_profile_period():
     "Given {profile}, addressing..." template spliced a company_profile
     that already ends in its own period into a comma clause, producing a
     run-on like "Given Colruyt Group is a retailer... products. The
-    company's customer is likely individuals..., addressing the 3
-    issue(s) above should be a priority." The fallback must instead treat
+    company's customer is likely individuals..., addressing the 3 top
+    issue(s) identified in this report should be a priority." The fallback
+    must instead treat
     the profile as its own clean sentence."""
     profile = (
         "Colruyt Group is a retailer that offers a range of food and "
@@ -213,7 +214,7 @@ def test_fallback_executive_sentence_avoids_comma_splice_after_profile_period():
 
     assert ", addressing" not in text.lower()
     assert profile in text
-    assert "Addressing the 3 issue(s) above should be a priority." in text
+    assert "Addressing the 3 top issue(s) identified in this report should be a priority." in text
 
 
 def test_fallback_finding_sentence_avoids_comma_splice_after_profile_period():
@@ -241,7 +242,7 @@ def test_generate_executive_narrative_falls_back_when_ollama_unreachable(
     )
 
     assert _COMPANY_PROFILE in text
-    assert "1 issue" in text
+    assert "Addressing the 1 top issue(s) identified in this report should be a priority." in text
 
 
 def test_generate_executive_narrative_falls_back_when_grounding_fails(monkeypatch):

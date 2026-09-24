@@ -372,7 +372,7 @@ _HTML_TEMPLATE = """\
   h2 { font-size: 1.05rem; font-weight: 600; border-bottom: 1px solid var(--border);
        padding-bottom: .4rem; margin-top: 2rem; }
   .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
-  .caption { color: var(--gray); font-size: .85rem; }
+  .caption { color: var(--gray); font-size: .85rem; overflow-wrap: anywhere; }
   .eyebrow { text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
              font-size: .72rem; color: var(--gray); margin: 0 0 .6rem; }
   .badge { display: inline-block; font-size: .8rem; font-weight: 500; padding: .15rem .6rem;
@@ -410,7 +410,7 @@ _HTML_TEMPLATE = """\
   .verdict-label-row { display: flex; align-items: center; gap: .5rem; }
   .verdict-label { font-size: 1.5rem; font-weight: 700; }
   .verdict-divider { border: none; border-top: 1px solid currentColor; opacity: .25; margin: .4rem 0; }
-  .verdict-narrative { margin: 0; font-size: .92rem; line-height: 1.5; }
+  .verdict-narrative { margin: 0; font-size: .92rem; line-height: 1.5; overflow-wrap: anywhere; }
   .browser-frame { border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
                    background: var(--bg-card); display: flex; flex-direction: column; break-inside: avoid; }
   .browser-chrome { display: flex; align-items: center; gap: .35rem; padding: .5rem .7rem;
@@ -436,7 +436,7 @@ _HTML_TEMPLATE = """\
   .scorecard-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
   .kpi-card { border: 1px solid var(--border); border-top: 4px solid var(--border);
               border-radius: 8px; padding: 1rem 1.1rem; display: flex; flex-direction: column;
-              gap: .4rem; background: var(--bg-card); break-inside: avoid; }
+              gap: .4rem; background: var(--bg-card); break-inside: avoid; min-width: 0; }
   .kpi-card svg { color: var(--gray); }
   .kpi-card-name { font-size: .7rem; font-weight: 700; text-transform: uppercase;
                    letter-spacing: .04em; color: var(--gray); }
@@ -444,7 +444,7 @@ _HTML_TEMPLATE = """\
   .kpi-card-value { font-size: 1.3rem; font-weight: 700; margin: 0; }
   .kpi-card-value.is-not-measured { color: var(--gray); font-weight: 600; font-size: 1.05rem; }
   .kpi-card-unit { font-size: .8rem; font-weight: 500; color: var(--gray); }
-  .kpi-card-caption { font-size: .78rem; color: var(--gray); margin: 0; }
+  .kpi-card-caption { font-size: .78rem; color: var(--gray); margin: 0; overflow-wrap: anywhere; }
   .kpi-card-pass-evidence { color: #22C55E; }
   /* One source of truth for the accent hex values: these classes, not a
      duplicated Python-side hex table -- shared by the scorecard's top
@@ -460,17 +460,17 @@ _HTML_TEMPLATE = """\
   .finding-card { border: 1px solid var(--border); border-left-width: 4px; border-radius: 8px;
                   padding: .9rem 1.1rem; margin: .75rem 0; background: var(--bg-card); break-inside: avoid; }
   .finding-title { font-weight: 600; margin: .4rem 0 .25rem; }
-  .finding-text { color: var(--gray); font-size: .9rem; margin: 0; }
-  .finding-why { color: var(--gray); font-size: .85rem; font-style: italic; margin: .5rem 0 0; }
-  .finding-accept { color: var(--gray); font-size: .8rem; margin: .4rem 0 0; }
-  .finding-interpretation, .finding-hypothesis { color: var(--gray); font-size: .85rem; margin: .4rem 0 0; }
+  .finding-text { color: var(--gray); font-size: .9rem; margin: 0; overflow-wrap: anywhere; }
+  .finding-why { color: var(--gray); font-size: .85rem; font-style: italic; margin: .5rem 0 0; overflow-wrap: anywhere; }
+  .finding-accept { color: var(--gray); font-size: .8rem; margin: .4rem 0 0; overflow-wrap: anywhere; }
+  .finding-interpretation, .finding-hypothesis { color: var(--gray); font-size: .85rem; margin: .4rem 0 0; overflow-wrap: anywhere; }
   .finding-card.accent-red { border-left-color: #EF4444; }
   .finding-card.accent-orange { border-left-color: #F97316; }
   .badge-priority { margin-left: .4rem; }
 
   /* -- Task Results ----------------------------------------------------*/
   .task-result-card { border: 1px solid var(--border); border-radius: 8px; padding: .9rem 1.1rem;
-                       margin: .75rem 0; background: var(--bg-card); break-inside: avoid; }
+                       margin: .75rem 0; background: var(--bg-card); break-inside: avoid; min-width: 0; overflow-wrap: anywhere; }
   .task-result-title { font-weight: 600; margin: 0 0 .3rem; display: flex; align-items: center; gap: .5rem; }
   .task-thumbnail { max-width: 220px; border-radius: 6px; border: 1px solid var(--border);
                      margin: .5rem 0 0; display: block; }
@@ -823,9 +823,17 @@ not comparable ({{ row.reason }})
 {% endif %}
 {% endif %}
 
-{% if limitations_markdown %}
+{% if limitations_blocks %}
 <h2>Limitations</h2>
-<p class="caption">{{ limitations_markdown | escape | replace('\n', '<br>') }}</p>
+{% for block in limitations_blocks %}
+  {% if block.kind == 'list' %}
+  <ul class="caption">
+    {% for item in block['items'] %}<li>{{ item }}</li>{% endfor %}
+  </ul>
+  {% else %}
+  <p class="caption">{{ block.text }}</p>
+  {% endif %}
+{% endfor %}
 {% endif %}
 
 <p class="footer caption">Generated locally by CitePulse — no data leaves your machine.</p>
@@ -3029,6 +3037,51 @@ def render_limitations_section(data: dict) -> str:
     return render_limitations({"limitations_body": body})
 
 
+def _limitations_html_blocks(md: str) -> list[dict]:
+    """Split ``render_limitations_section()``'s markdown into discrete HTML
+    blocks for the report template: drops the leading ``## `` heading (the
+    template renders its own explicit ``<h2>Limitations</h2>``) and groups
+    the body into ``{"kind": "list", "items": [...]}`` blocks (lines
+    starting ``- ``, each item with the ``"- "`` prefix stripped) and
+    ``{"kind": "p", "text": ...}`` blocks (contiguous non-bullet lines,
+    reflowed onto one line). Pure and lossless: every item/text is the
+    markdown's own words, never invented, so the HTML renderer can use
+    normal autoescape instead of the old escape-then-<br> splice."""
+    lines = md.splitlines()
+    if lines and lines[0].startswith("## "):
+        lines = lines[1:]
+    blocks: list[dict] = []
+    current_items: list[str] | None = None
+    paragraph: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            if current_items is not None:
+                blocks.append({"kind": "list", "items": current_items})
+                current_items = None
+            elif paragraph:
+                blocks.append({"kind": "p", "text": " ".join(paragraph)})
+                paragraph = []
+            continue
+        if stripped.startswith("- "):
+            if paragraph:
+                blocks.append({"kind": "p", "text": " ".join(paragraph)})
+                paragraph = []
+            if current_items is None:
+                current_items = []
+            current_items.append(stripped[2:])
+        else:
+            if current_items is not None:
+                blocks.append({"kind": "list", "items": current_items})
+                current_items = None
+            paragraph.append(stripped)
+    if current_items is not None:
+        blocks.append({"kind": "list", "items": current_items})
+    elif paragraph:
+        blocks.append({"kind": "p", "text": " ".join(paragraph)})
+    return blocks
+
+
 def _finding_priority_row(data: dict, result: KPIResult) -> dict:
     """One row's worth of FR-9 priority + finding facts for a KPI result,
     shared by the CSV/JSON renderers so both serialize identically. Never
@@ -3201,7 +3254,16 @@ def render_html_report(data: dict) -> str:
                 else None,
                 "reason": status.get("reason"),
                 "diagnostic_lines": (
-                    checked_paths_diagnostic_lines(result) if not_measured else []
+                    # HTML has no markdown code-backtick rendering, so the
+                    # `` `path` `` emitted by checked_paths_diagnostic_lines()
+                    # would print verbatim -- strip them for this renderer
+                    # only; Markdown/Streamlit callers keep the backticks.
+                    [
+                        line.replace("`", "")
+                        for line in checked_paths_diagnostic_lines(result)
+                    ]
+                    if not_measured
+                    else []
                 ),
                 "band_label": BAND_LABEL.get(result.band, result.band)
                 if result.band
@@ -3363,7 +3425,7 @@ def render_html_report(data: dict) -> str:
         ),
         regression_rows=regression_rows(data.get("regression")),
         trend=data.get("trend"),
-        limitations_markdown=render_limitations_section(data),
+        limitations_blocks=_limitations_html_blocks(render_limitations_section(data)),
         detail_full=data.get("detail") == "full",
         detailed=detailed,
     )
